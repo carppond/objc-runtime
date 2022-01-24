@@ -34,10 +34,17 @@
  用于获取weak_entry_t或 weak_table_t 的哈希数组当前分配的总容量.
  - 在 weak_entry_t 中,当对象的弱引用数量不超过 4 的时候,就使用 weak_referrer_t inline_referrers[WEAK_INLINE_COUNT]这个固定长度为 4 的数组存放 weak_referrer_他.当长度大于 4,就要使用 weak_referret_t *referrers这个哈希数组存放 weak_referent_t 数据.
  - weak_table_t的哈希数组初始化长度是 64,当存储占比超过 3/4 后,哈希数组会扩容为总容量的 2 倍,然后会把之前的数据重新哈希化存放到新空间.当一些数据从哈希数组中移除后,为了提高查找效率势必要对哈希数组的总长度做缩小操作,规则是当哈希数组总容量超过 1024且已使用部分少于总容量1/16 时,缩小为总容量的 1/8,缩小后同样会把原始数据重新哈希化存储到新空间.(缩小和扩展都是实用 calloc 函数开辟新空间,cache_t 扩容后是直接忽略旧数据,这里可以比较记忆).牢记以上只是针对 weak_table_t 的哈希数组而言.
- - 
+ - weak_entry_t 则是首先用固定长度为 4的数组,当有新的弱引用进来时,会首先判断当前使用的是定长数组还是哈希数组,如果此时使用的还是定长数据的话要先判断定长数组还有没有空位,如果没有空位的话就会为哈希数组申请长度为 4 并用一个循环把定长数组中的数据放在哈希数组,这里看似是按下标循环存放,其实下面会重新进行哈希化,然后是判断是否对哈希数组进行扩容,也就是如果超过总容量的 3/4 进行扩容为总容量的 2 倍,所以 weak_entry_t 的哈希数组第一次扩容后是 8.然后下面区别就来了,weak_entry_t 的哈希数组是没有缩小机制的,移除弱引用的操作其实只是把弱引用的指向置为 nil,做移除操作的是判断如果定长数组位空或者哈希数组为空,则会把 weak_table_t 哈希数组中的 weak_entry_t 移除,然后对 weak_table_t 做一些缩小容量的操作.
+ - weak_entry_t 和 weak_table_t 可以共用 TABLE_SIZE,因为它们对 mask 的使用机制完全一样.这里 weak_entry_t 之所以不缩小,且起始用固定长度数组,都是对其的优化,因为本来一个对象的弱引用数据就不会太多.
+ 
+ 现在想来依然觉着 mask 的值用的很巧妙(前文已经讲过 mask 的全部租用,起始脱离 mask 相关的源码,objc4 其他地方也采用了这种做法)
+ 
  */
 #define TABLE_SIZE(entry) (entry->mask ? entry->mask + 1 : 0)
 
+/*
+ 函数功能如其名,往指定的 weak_entry_t 里添加 nwe_referrer(weak 的变量地址).这里只是声明,具体实现在后面,这个声明只是为了给下面的其他函数调用做的声明.
+ */
 static void append_referrer(weak_entry_t *entry, objc_object **new_referrer);
 
 BREAKPOINT_FUNCTION(

@@ -47,10 +47,22 @@
  */
 static void append_referrer(weak_entry_t *entry, objc_object **new_referrer);
 
+
+/* Use this for functions that are intended to be breakpoint hooks.
+   If you do not, the compiler may optimize them away.
+   BREAKPOINT_FUNCTION( void stop_on_error(void) );
+#   define BREAKPOINT_FUNCTION(prototype)                             \
+    OBJC_EXTERN __attribute__((noinline, used, visibility("hidden"))) \
+    prototype { asm(""); }
+ 参考链接:GCC扩展 attribute ((visibility("hidden"))) https://www.cnblogs.com/lixiaofei1987/p/3198665.html
+ */
 BREAKPOINT_FUNCTION(
     void objc_weak_error(void)
 );
 
+/*
+ _objc_fatal 用来退出程序或者终止运行并打印原因.这里表示 weak_table_t 中的某个 weak_entry_t 发生了内部错误,全局搜索发现该函数只会发生在 hash 冲突时 index 持续增加直到和 begin 相等时会被调用
+ */
 static void bad_weak_table(weak_entry_t *entries)
 {
     _objc_fatal("bad weak table at %p. This may be a runtime bug or a "
@@ -67,17 +79,20 @@ static void bad_weak_table(weak_entry_t *entries)
  * 哈希函数,与 mask 做与操作,防止 index 越界
  * hash_pointer(referent) 调用通用的指针哈希函数，后面的 & weak_table->mask 位操作来确保得到的 begin 不会越界，同我们日常使用的取模操作（%）是一样的功能，只是改为了位操作，提升了效率。
  */
+// 将一个 objc_object 对象的指针求哈希值, 用于从 weak_table_t 哈希表中取得对象对应的 weak_entry_t
 static inline uintptr_t hash_pointer(objc_object *key) {
     // 把指针强转化为 unsigned long,然后调用 ptr_hash 函数
     return ptr_hash((uintptr_t)key);
 }
 
 /** 
- * Unique hash function for weak object pointers only.
+ * Unique hash function for weak object pointers only. 唯一的哈希函数仅适用于弱引用对象指针
  * 
  * @param key The weak object pointer. 
  * 
  * @return Size unrestricted hash of pointer.
+ *
+ * 对一个 objc_object 对象指针的指针(此处是指 weak 变量的地址)求哈希值,用于从 weak_entry_t 哈希表中取得 weak_referrer_t把其保存的弱引用变量的指向置为 nil 或者从哈希表中移除等
  */
 static inline uintptr_t w_hash_pointer(objc_object **key) {
     return ptr_hash((uintptr_t)key);
@@ -88,33 +103,48 @@ static inline uintptr_t w_hash_pointer(objc_object **key) {
  * of the referrers.
  * 
  * @param entry Weak pointer hash set for a particular object.
+ *
+ * 对 weak_entry_t 的哈希数组进行扩容,并插入一个新的 new_referrer,原有数据重新哈希化放在新空间内
  */
 __attribute__((noinline, used))
 static void grow_refs_and_insert(weak_entry_t *entry, 
                                  objc_object **new_referrer)
 {
+    // DEBUG 模式下的断言,确保当前 weak_entry_t 使用的是哈希数组
     ASSERT(entry->out_of_line());
 
+    // 新容量是为旧容量的 2 倍
     size_t old_size = TABLE_SIZE(entry);
     size_t new_size = old_size ? old_size * 2 : 8;
 
+    // 记录当前已使用的容量
     size_t num_refs = entry->num_refs;
+    // 记录旧哈希数组的起始地址,在最后进行释放
     weak_referrer_t *old_refs = entry->referrers;
+    // mask 依然是总容量-1
     entry->mask = new_size - 1;
     
+    // 为新哈希数组申请空间
+    // 长度为总容量 * sizeof(weak_referrer_t)(8)个字节
     entry->referrers = (weak_referrer_t *)
         calloc(TABLE_SIZE(entry), sizeof(weak_referrer_t));
+    
+    // 默认为 0
     entry->num_refs = 0;
     entry->max_hash_displacement = 0;
     
     for (size_t i = 0; i < old_size && num_refs > 0; i++) {
         if (old_refs[i] != nil) {
+            // 把旧哈希数组里的数据放到新哈希数组里
             append_referrer(entry, old_refs[i]);
+            // 旧哈希数组的长度自减
             num_refs--;
         }
     }
     // Insert
+    // 然后把入参传入的 new_referrer 插入新的哈希数组中,签名的铺垫都是数据转移
     append_referrer(entry, new_referrer);
+    // 释放旧哈希数组
     if (old_refs) free(old_refs);
 }
 

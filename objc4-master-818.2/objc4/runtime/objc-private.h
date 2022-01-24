@@ -1214,11 +1214,19 @@ public:
 // Pointer hash function.
 // This is not a terrific hash, but it is fast 
 // and not outrageously flawed for our purposes.
+//指针哈希函数。这不是一个了不起的哈希，但是它很快，并且没有为了我们的目的而有过分的缺陷。
 
 // Based on principles from http://locklessinc.com/articles/fast_hash/
 // and evaluation ideas from http://floodyberry.com/noncryptohashzoo/
 /*
- ptr_hash 函数区分 64 位和 32 位的情况
+ __LP64__ 指 long 和 pointer 都占 64 位的环境。
+ 
+ ptr_hash 是指针哈希函数,看到源码中有多处用到了他
+ - key 右移 4 位的值做异或操作
+ - 与 0x8a970be7488fda55 这个值做乘法
+ - __builtin_bswap64 翻转 64 位数各字节然后再做一次异或
+ 
+ __builtin_bswap64 可参考[gcc的__builtin_函数介绍](https://blog.csdn.net/acmdream/article/details/60962021)
  */
 #if __LP64__
 static inline uint32_t ptr_hash(uint64_t key)

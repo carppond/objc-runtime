@@ -248,6 +248,7 @@
 		393CEAC50DC69E67000B69DE /* objc-references.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "objc-references.h"; path = "runtime/objc-references.h"; sourceTree = "<group>"; };
 		39ABD71F12F0B61800D1054C /* objc-weak.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "objc-weak.h"; path = "runtime/objc-weak.h"; sourceTree = "<group>"; };
 		39ABD72012F0B61800D1054C /* objc-weak.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "objc-weak.mm"; path = "runtime/objc-weak.mm"; sourceTree = "<group>"; };
+		5F739E4527A0F94D00DE0BE2 /* taggedpointer 调试代码.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "taggedpointer 调试代码.h"; sourceTree = "<group>"; };
 		5FF8D116278FC9AC00C0EE66 /* test_objc.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = test_objc.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5FF8D118278FC9AC00C0EE66 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		5FF8D119278FC9AC00C0EE66 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
@@ -538,9 +539,18 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		5F739E4427A0F91500DE0BE2 /* TaggedPointer */ = {
+			isa = PBXGroup;
+			children = (
+				5F739E4527A0F94D00DE0BE2 /* taggedpointer 调试代码.h */,
+			);
+			path = TaggedPointer;
+			sourceTree = "<group>";
+		};
 		5FF8D117278FC9AC00C0EE66 /* test_objc */ = {
 			isa = PBXGroup;
 			children = (
+				5F739E4427A0F91500DE0BE2 /* TaggedPointer */,
 				5FF8D159278FCE1F00C0EE66 /* test_objcDebug.entitlements */,
 				5FF8D158278FCDDB00C0EE66 /* test_objc.entitlements */,
 				5FF8D118278FC9AC00C0EE66 /* AppDelegate.h */,

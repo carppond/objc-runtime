@@ -109,8 +109,9 @@ OBJC_EXPORT id _Nullable object_copy(id _Nullable obj, size_t size)
 
 /** 
  * Frees the memory occupied by a given object.
- * 
- * @param obj An Objective-C object.
+ * 释放给定对象占用的内存
+ *
+ * @param obj An Objective-C object. OC 对象
  * 
  * @return nil
  */

@@ -544,28 +544,40 @@ objc_object::rootIsDeallocating()
     return sidetable_isDeallocating();
 }
 
-
+// isa 优化情况下调用
 inline void 
 objc_object::clearDeallocating()
 {
     if (slowpath(!isa.nonpointer)) {
         // Slow path for raw pointer isa.
+        // 对象的 isa 指针是原始类型,调用这里
         sidetable_clearDeallocating();
     }
     else if (slowpath(isa.weakly_referenced  ||  isa.has_sidetable_rc)) {
         // Slow path for non-pointer isa with weak refs and/or side table data.
+        // 对象的 isa 是优化后的 isa_t 调用
         clearDeallocating_slow();
     }
 
     assert(!sidetable_present());
 }
 
-
+/// SUPPORT_NONPOINTER_ISA isa 优化情况下调用这个
 inline void
 objc_object::rootDealloc()
 {
+    // 如果是 TaggedPointer 直接 return,感觉不是很有必要,难搞TaggedPointer类型的对象不走这里的流程了吗?
     if (isTaggedPointer()) return;  // fixme necessary?
 
+    // 这一步的判断比较多,符合条件的话可以直接调用 free,快速释放对象
+    
+    // 1. isa 非指针类型,即优化的 isa_t 类型,除了类对象地址还包括了更多信息
+    // 2. 没有弱引用
+    // 3. 没有关联对象
+    // 4. 没有自定义的 C++析构函数
+    // 5, SideTable中不存储引用技术,即引用计数全部放在 extra_rc 中
+    
+    // 满足以上 5 个条件,直接快速释放对象
     if (fastpath(isa.nonpointer                     &&
                  !isa.weakly_referenced             &&
                  !isa.has_assoc                     &&
@@ -580,8 +592,15 @@ objc_object::rootDealloc()
         free(this);
     } 
     else {
+        // 调用 object_dispose 释放
         object_dispose((id)this);
     }
+    /*
+     rootDealloc 函数流程如下:
+     1. 判断 object 是否是 TaggedPointer 类型,如果是,则不进行任何析构,直接返回.关于这一点,我们可以看出TaggedPointer对象,是不走这个析构流程的(其实并不是说TaggedPointer的内存不会进行释放,其实TaggedPointer的内存在栈区由系统进行释放,而我们这些普通的对象变量是在堆区,它们才需要这个释放流程)
+     2. 接下来判断对象是否能够快速释放(free(this) C 函数释放内存).首先判断对象是否采用了优化了 isa 计数方式(isa.nonpointer ).如果是接下来进行判断对象不存在 weak 引用(!isa.weakly_referenced),没有关联对象(!isa.has_assoc),没有自定义的 C++析构函数(!isa.has_cxx_dtor),没有用到 SideTable 的 refcnts 存放引用计数(!isa.has_sidetable_rc))).
+     3. 其他情况进入object_dispose((id)this);分支进行慢速释放
+     */
 }
 
 extern explicit_atomic<id(*)(id)> swiftRetain;
@@ -1104,10 +1123,13 @@ objc_object::clearDeallocating()
 }
 
 
+// isa 指针未被优化,还是个类指针
 inline void
 objc_object::rootDealloc()
 {
+    // 如果是 Tagged Pointer 类型,直接 return
     if (isTaggedPointer()) return;
+    // 调用 object_dispose 函数,销毁
     object_dispose((id)this);
 }
 

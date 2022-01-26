@@ -8110,22 +8110,29 @@ object_copyFromZone(id oldObj, size_t extraBytes, void *zone)
 
 /***********************************************************************
 * objc_destructInstance
-* Destroys an instance without freeing memory. 
-* Calls C++ destructors.
-* Calls ARC ivar cleanup.
-* Removes associative references.
-* Returns `obj`. Does nothing if `obj` is nil.
+* Destroys an instance without freeing memory.
+ 在不释放内存的情况下销毁实例。
+* Calls C++ destructors.调用 C++ 析构函数。
+* Calls ARC ivar cleanup.调用 ARC ivar 清理。
+* Removes associative references.删除关联引用。
+* Returns `obj`. Does nothing if `obj` is nil.返回`obj`。 如果 `obj` 为 nil，则不执行任何操作。
 **********************************************************************/
 void *objc_destructInstance(id obj) 
 {
     if (obj) {
         // Read all of the flags at once for performance.
+        // 一次读取所有标志以提高性能
         bool cxx = obj->hasCxxDtor();
         bool assoc = obj->hasAssociatedObjects();
 
         // This order is important.
+        // 此顺序很重要
+        // C++析构
         if (cxx) object_cxxDestruct(obj);
+        // 移除所有的关联对象,并将其自身从 Association Manager 的 map 中移除
         if (assoc) _object_remove_assocations(obj, /*deallocating*/true);
+        
+        // 到这里还没有看到对象的弱引用被置为 nil,应该在clearDeallocating函数内
         obj->clearDeallocating();
     }
 
@@ -8138,15 +8145,22 @@ void *objc_destructInstance(id obj)
 * fixme
 * Locking: none
 **********************************************************************/
+
 id 
 object_dispose(id obj)
 {
+    // 对象不存在直接返回
     if (!obj) return nil;
-
-    objc_destructInstance(obj);    
+    // 可以理解为 free 前的清理工作
+    objc_destructInstance(obj);
+    // 释放对象
     free(obj);
-
+    
     return nil;
+    /*
+     obj 存在弱引用则进入 object_dispose((id)this) 分支, 下面是 object_dispose 函数，
+     object_dispose 方法中，会先调用 objc_destructInstance(obj)（可以理解为 free 前的清理工作）来析构 obj，再用 free(obj) 来释放内存空间:
+     */
 }
 
 

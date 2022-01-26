@@ -21,6 +21,14 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ __ARM_ARCH_7K__ arm 7k设备 Apple Watch S1 S1P S2 S3 设备 具体可以看[苹果 S 系列处理器 参数大全](https://kylebing.cn/tools/apple-chip/)
+ __ARM_ARCH_7K__ >= 2 ,排除 Apple Watch 单核 CPU 架构.
+ 
+ __arm64__ ARM 64 架构
+ __LP64__ 即 Long Pointer,即代码中的 long int 和指针类型的长度是 64 位(8 字节)
+ 
+ */
 #ifndef _OBJC_CONFIG_H_
 #define _OBJC_CONFIG_H_
 
@@ -34,17 +42,24 @@
 #endif
 
 // Define SUPPORT_GC_COMPAT=1 to enable compatibility where GC once was.
+// 定义 SUPPORT_GC_COMPAT=1 以启用 GC 曾经存在的兼容性。
 // OBJC_NO_GC and OBJC_NO_GC_API in objc-api.h mean something else.
+// objc-api.h 中的 OBJC_NO_GC 和 OBJC_NO_GC_API 有别的意思。
 #if !TARGET_OS_OSX
+// 非Mac的设备
 #   define SUPPORT_GC_COMPAT 0
 #else
+// Mac 设备
 #   define SUPPORT_GC_COMPAT 1
 #endif
 
 // Define SUPPORT_ZONES=1 to enable malloc zone support in NXHashTable.
+// 定义 SUPPORT_ZONES=1 以在 NXHashTable 中启用 malloc 区域支持。
 #if !(TARGET_OS_OSX || TARGET_OS_MACCATALYST)
+// 非Mac的设备
 #   define SUPPORT_ZONES 0
 #else
+// Mac 设备
 #   define SUPPORT_ZONES 1
 #endif
 
@@ -82,24 +97,31 @@
 // Define SUPPORT_INDEXED_ISA=1 on platforms that store the class in the isa 
 // field as an index into a class table.
 // Note, keep this in sync with any .s files which also define it.
-// Be sure to edit objc-abi.h as well.
+// 在将 isa 字段中的类存储为类表的索引的平台上定义 SUPPORT_INDEXED_ISA=1。 请注意，将此与定义它的任何 .s 文件保持同步。
+// Be sure to edit objc-abi.h as well. 一定要编辑 objc-abi.h。
+// 多 CPU 或者arm64 架构,但是不是 64 位.这里主要是针对 apple watch 设备
 #if __ARM_ARCH_7K__ >= 2  ||  (__arm64__ && !__LP64__)
 #   define SUPPORT_INDEXED_ISA 1
 #else
 #   define SUPPORT_INDEXED_ISA 0
 #endif
 
-// Define SUPPORT_PACKED_ISA=1 on platforms that store the class in the isa 
+// Define SUPPORT_PACKED_ISA=1 on platforms that store the class in the isa
+// 在将类存储在 isa 中的平台上定义 SUPPORT_PACKED_ISA=1
 // field as a maskable pointer with other data around it.
+// 字段作为可屏蔽指针，周围有其他数据。
+// 非 64 位,非 ARM64 平台
 #if (!__LP64__  ||  TARGET_OS_WIN32  ||  \
      (TARGET_OS_SIMULATOR && !TARGET_OS_MACCATALYST && !__arm64__))
 #   define SUPPORT_PACKED_ISA 0
 #else
+// 在 iOS 和 Mac 平台这里是 1
 #   define SUPPORT_PACKED_ISA 1
 #endif
 
 // Define SUPPORT_NONPOINTER_ISA=1 on any platform that may store something
 // in the isa field that is not a raw pointer.
+// SUPPORT_NONPOINTER_ISA 用于标记是否支持优化的 isa 指针，其字面含义意思是 isa 的内容不再是类的指针了，而是包含了更多信息，比如引用计数，析构状态，被其他 weak 变量引用情况。判断方法也是根据设备类型，目前只支持arm64架构的：
 #if !SUPPORT_INDEXED_ISA  &&  !SUPPORT_PACKED_ISA
 #   define SUPPORT_NONPOINTER_ISA 0
 #else

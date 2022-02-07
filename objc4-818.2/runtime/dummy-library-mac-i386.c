@@ -179,7 +179,7 @@ void objc_alloc_init(void) {}
 void objc_allocateClassPair(void) {}
 void objc_allocateProtocol(void) {}
 void objc_allocate_object(void) {}
-void objc_appRequiresGC(void) {}
+//void objc_appRequiresGC(void) {}
 void objc_assertRegisteredThreadWithCollector(void) {}
 void objc_assign_global(void) {}
 void objc_assign_ivar(void) {}

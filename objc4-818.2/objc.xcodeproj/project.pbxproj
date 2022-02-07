@@ -170,13 +170,6 @@
 			remoteGlobalIDString = D2AAC0620554660B00DB518D;
 			remoteInfo = objc;
 		};
-		9DA65A2A26451258000514D8 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = D2AAC0620554660B00DB518D;
-			remoteInfo = objc;
-		};
 		F9BCC728205C6A0900DD9AFC /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -709,7 +702,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				9DA65A2B26451258000514D8 /* PBXTargetDependency */,
 			);
 			name = objc_test;
 			productName = objc_test;
@@ -779,7 +771,7 @@
 					};
 					9DA65A1B264511E2000514D8 = {
 						CreatedOnToolsVersion = 12.4;
-						DevelopmentTeam = 625Q623EV5;
+						DevelopmentTeam = N9LDSE2B7J;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -952,11 +944,6 @@
 			isa = PBXTargetDependency;
 			target = D2AAC0620554660B00DB518D /* objc */;
 			targetProxy = 837F67AC1A771F6E004D34FA /* PBXContainerItemProxy */;
-		};
-		9DA65A2B26451258000514D8 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = D2AAC0620554660B00DB518D /* objc */;
-			targetProxy = 9DA65A2A26451258000514D8 /* PBXContainerItemProxy */;
 		};
 		F9BCC729205C6A0900DD9AFC /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1365,7 +1352,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				DEVELOPMENT_TEAM = 625Q623EV5;
+				DEVELOPMENT_TEAM = N9LDSE2B7J;
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;

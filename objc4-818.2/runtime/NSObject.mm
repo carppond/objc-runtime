@@ -833,7 +833,10 @@ objc_loadWeakRetained(id *location)
  * retaining and autoreleasing the object to ensure that it stays alive
  * long enough for the caller to use it. This function would be used
  * anywhere a __weak variable is used in an expression.
- * 
+ *
+ *  这将加载由弱指针引用的对象，并在保留并自动释放该对象以确保其保持足够长的生存期以供调用者使用后，
+ * 将其返回。在表达式中使用 __weak 变量的任何地方都可以使用此函数。
+ *
  * @param location The weak pointer address
  * 
  * @return The object pointed to by \e location, or \c nil if \e location is \c nil.

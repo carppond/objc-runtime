@@ -1630,31 +1630,50 @@ objc_storeWeak(id _Nullable * _Nonnull location, id _Nullable obj)
 
 
 /* Associative References */
-
+// 关联引用
 /**
  * Policies related to associative references.
+ * 关联引用相关的策略
  * These are options to objc_setAssociatedObject()
+ * 这些选项与 objc_setAssociatedObject 函数一起使用
  */
 typedef OBJC_ENUM(uintptr_t, objc_AssociationPolicy) {
-    OBJC_ASSOCIATION_ASSIGN = 0,           /**< Specifies a weak reference to the associated object. */
-    OBJC_ASSOCIATION_RETAIN_NONATOMIC = 1, /**< Specifies a strong reference to the associated object. 
+    /**< Specifies a weak reference to the associated object. */
+    // 指定对关联对象的弱引用(weak reference), 其实这里等于 assign/unsafe_unretained
+    OBJC_ASSOCIATION_ASSIGN = 0,
+    /**< Specifies a strong reference to the associated object.
                                             *   The association is not made atomically. */
-    OBJC_ASSOCIATION_COPY_NONATOMIC = 3,   /**< Specifies that the associated object is copied. 
+    // 强引用,非原子属性.属性关键词 nonatomic
+    OBJC_ASSOCIATION_RETAIN_NONATOMIC = 1,
+    /**< Specifies that the associated object is copied.
                                             *   The association is not made atomically. */
-    OBJC_ASSOCIATION_RETAIN = 01401,       /**< Specifies a strong reference to the associated object.
+    // 属性关键词 nonatomic/copy
+    OBJC_ASSOCIATION_COPY_NONATOMIC = 3,
+    /**< Specifies a strong reference to the associated object.
                                             *   The association is made atomically. */
-    OBJC_ASSOCIATION_COPY = 01403          /**< Specifies that the associated object is copied.
+    // 属性关键词 atomic/retain
+    OBJC_ASSOCIATION_RETAIN = 01401,
+    /**< Specifies that the associated object is copied.
                                             *   The association is made atomically. */
+    // 属性关键词 atomic/copy
+    OBJC_ASSOCIATION_COPY = 01403
 };
 
 /** 
  * Sets an associated value for a given object using a given key and association policy.
- * 
+ * 使用给定的 key 和关联策略为给定的对象设置关联值
+ *
  * @param object The source object for the association.
+ * // 关联的源对象
+ *
  * @param key The key for the association.
+ * // 关联的 key
+ *
  * @param value The value to associate with the key key for object. Pass nil to clear an existing association.
+ * 与对象的key 相关联的值,如果传 nil,则清除现在的关联
+ *
  * @param policy The policy for the association. For possible values, see “Associative Object Behaviors.”
- * 
+ * 关联策略. 有关值,参考Associative Object Behaviors(objc_AssociationPolicy)
  * @see objc_setAssociatedObject
  * @see objc_removeAssociatedObjects
  */
@@ -1665,12 +1684,16 @@ objc_setAssociatedObject(id _Nonnull object, const void * _Nonnull key,
 
 /** 
  * Returns the value associated with a given object for a given key.
- * 
+ * 返回与给定键的给定对象关联的值。
+ *
  * @param object The source object for the association.
+ * 关联源对象
+ *
  * @param key The key for the association.
- * 
+ * // 关联 key
+ *
  * @return The value associated with the key \e key for \e object.
- * 
+ *
  * @see objc_setAssociatedObject
  */
 OBJC_EXPORT id _Nullable
@@ -1679,15 +1702,20 @@ objc_getAssociatedObject(id _Nonnull object, const void * _Nonnull key)
 
 /** 
  * Removes all associations for a given object.
- * 
+ * 删除给定对象所有的关联
+ *
  * @param object An object that maintains associated objects.
- * 
+ * 维护关联对象的对象
+ *
  * @note The main purpose of this function is to make it easy to return an object 
  *  to a "pristine state”. You should not use this function for general removal of
  *  associations from objects, since it also removes associations that other clients
  *  may have added to the object. Typically you should use \c objc_setAssociatedObject 
  *  with a nil value to clear an association.
- * 
+ *  此函数的主要目的是删除全部关联,把对象还原到没有关联的时候.
+ *  因此不应该用该函数从对象中删除关联,因为它还会删除其他clients可能已添加到对象中的关联.
+ *  通常应该用objc_setAssociatedObject 和 nil 一起使用以清除指定关联.
+ *
  * @see objc_setAssociatedObject
  * @see objc_getAssociatedObject
  */

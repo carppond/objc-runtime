@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2009 Apple Inc.  All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -25,9 +25,9 @@
 #ifndef _OBJC_INTERNAL_H
 #define _OBJC_INTERNAL_H
 
-/* 
+/*
  * WARNING  DANGER  HAZARD  BEWARE  EEK
- * 
+ *
  * Everything in this file is for Apple Internal use only.
  * These will change in arbitrary OS updates and in unpredictable ways.
  * When your program breaks, you get to keep both pieces.
@@ -38,7 +38,6 @@
  */
 
 #include <objc/objc.h>
-#include <objc/objc-api.h>
 #include <objc/runtime.h>
 #include <Availability.h>
 #include <malloc/malloc.h>
@@ -55,7 +54,7 @@
 #define OBJC_EXIT_REASON_UNSPECIFIED 1
 #define OBJC_EXIT_REASON_GC_NOT_SUPPORTED 2
 
-// This is the allocation size required for each of the class and the metaclass 
+// This is the allocation size required for each of the class and the metaclass
 // with objc_initializeClassPair() and objc_readClassPair().
 // The runtime's class structure will never grow beyond this.
 #define OBJC_MAX_CLASS_SIZE (32*sizeof(void*))
@@ -87,11 +86,11 @@ OBJC_EXPORT void _objc_isDebugBuild(void);
 // Call objc_registerClassPair() when you are done.
 OBJC_EXPORT Class _Nullable
 objc_initializeClassPair(Class _Nullable superclass, const char * _Nonnull name,
-                         Class _Nonnull cls, Class _Nonnull metacls) 
+                         Class _Nonnull cls, Class _Nonnull metacls)
     OBJC_AVAILABLE(10.6, 3.0, 9.0, 1.0, 2.0);
 
 // Class and metaclass construction from a compiler-generated memory image.
-// cls and cls->isa must each be OBJC_MAX_CLASS_SIZE bytes. 
+// cls and cls->isa must each be OBJC_MAX_CLASS_SIZE bytes.
 // Extra bytes not used the the metadata must be zero.
 // info is the same objc_image_info that would be emitted by a static compiler.
 // Returns nil if a class with the same name already exists.
@@ -108,7 +107,7 @@ objc_readClassPair(Class _Nonnull cls,
 
 // Batch object allocation using malloc_zone_batch_malloc().
 OBJC_EXPORT unsigned
-class_createInstances(Class _Nullable cls, size_t extraBytes, 
+class_createInstances(Class _Nullable cls, size_t extraBytes,
                       id _Nonnull * _Nonnull results, unsigned num_requested)
     OBJC_AVAILABLE(10.7, 4.3, 9.0, 1.0, 2.0)
     OBJC_ARC_UNAVAILABLE;
@@ -147,7 +146,7 @@ _objc_atfork_child(void)
 
 // Return YES if GC is on and `object` is a GC allocation.
 OBJC_EXPORT BOOL
-objc_isAuto(id _Nullable object) 
+objc_isAuto(id _Nullable object)
     OBJC_OSX_DEPRECATED_OTHERS_UNAVAILABLE(10.4, 10.8, "it always returns NO");
 
 // GC debugging
@@ -167,7 +166,7 @@ objc_collect_init(int (* _Nonnull callback)(void))
 OBJC_EXPORT
 Class _Nonnull * _Nullable
 objc_copyRealizedClassList(unsigned int *_Nullable outCount)
-	OBJC_AVAILABLE(10.15, 13.0, 13.0, 6.0, 5.0);
+    OBJC_AVAILABLE(10.15, 13.0, 13.0, 6.0, 5.0);
 
 typedef struct objc_imp_cache_entry {
     SEL _Nonnull sel;
@@ -177,7 +176,7 @@ typedef struct objc_imp_cache_entry {
 OBJC_EXPORT
 objc_imp_cache_entry *_Nullable
 class_copyImpCache(Class _Nonnull cls, int * _Nullable outCount)
-	OBJC_AVAILABLE(10.15, 13.0, 13.0, 6.0, 5.0);
+    OBJC_AVAILABLE(10.15, 13.0, 13.0, 6.0, 5.0);
 
 OBJC_EXPORT
 unsigned long
@@ -208,22 +207,20 @@ objc_assign_ivar_generic(id _Nullable value, id _Nonnull dest, ptrdiff_t offset)
 // 1: some slice requires GC
 // 0: no slice requires GC
 // -1: I/O or file format error
-//OBJC_EXPORT int
-//objc_appRequiresGC(int fd)
-//    __OSX_AVAILABLE(10.11)
-//    __IOS_UNAVAILABLE __TVOS_UNAVAILABLE
-//    __WATCHOS_UNAVAILABLE
-//#ifndef __APPLE_BLEACH_SDK__
-//    __BRIDGEOS_UNAVAILABLE
-//#endif
-//;
+OBJC_EXPORT int
+objc_appRequiresGC(int fd)
+    __OSX_AVAILABLE(10.11)
+    __IOS_UNAVAILABLE __TVOS_UNAVAILABLE
+    __WATCHOS_UNAVAILABLE
+#ifndef __APPLE_BLEACH_SDK__
+    __BRIDGEOS_UNAVAILABLE
+#endif
+;
 
 // Install missing-class callback. Used by the late unlamented ZeroLink.
-//OBJC_EXPORT void
-//_objc_setClassLoader(BOOL (* _Nonnull newClassLoader)(const char * _Nonnull)) OBJC2_UNAVAILABLE;
-
-//_objc_setClassLoader(BOOL (* _Nonnull newClassLoader)(const char * _Nonnull))
-//    OBJC2_UNAVAILABLE;
+OBJC_EXPORT void
+_objc_setClassLoader(BOOL (* _Nonnull newClassLoader)(const char * _Nonnull))
+    OBJC2_UNAVAILABLE;
 
 #if !(TARGET_OS_OSX && !TARGET_OS_MACCATALYST && __i386__)
 // Add a class copy fixup handler. The name is a misnomer, as
@@ -236,7 +233,7 @@ _objc_setClassCopyFixupHandler(void (* _Nonnull newFixupHandler)
     OBJC_AVAILABLE(10.14, 12.0, 12.0, 5.0, 3.0);
 #endif
 
-// Install handler for allocation failures. 
+// Install handler for allocation failures.
 // Handler may abort, or throw, or provide an object to return.
 OBJC_EXPORT void
 _objc_setBadAllocHandler(id _Nullable (* _Nonnull newHandler)
@@ -304,16 +301,16 @@ enum
 #endif
 {
     // 60-bit payloads
-    OBJC_TAG_NSAtom            = 0, 
-    OBJC_TAG_1                 = 1, 
-    OBJC_TAG_NSString          = 2, 
-    OBJC_TAG_NSNumber          = 3, 
-    OBJC_TAG_NSIndexPath       = 4, 
-    OBJC_TAG_NSManagedObjectID = 5, 
+    OBJC_TAG_NSAtom            = 0,
+    OBJC_TAG_1                 = 1,
+    OBJC_TAG_NSString          = 2,
+    OBJC_TAG_NSNumber          = 3,
+    OBJC_TAG_NSIndexPath       = 4,
+    OBJC_TAG_NSManagedObjectID = 5,
     OBJC_TAG_NSDate            = 6,
 
     // 60-bit reserved
-    OBJC_TAG_RESERVED_7        = 7, 
+    OBJC_TAG_RESERVED_7        = 7,
 
     // 52-bit payloads
     OBJC_TAG_Photos_1          = 8,
@@ -341,9 +338,9 @@ enum
 
     OBJC_TAG_Constant_CFString = 136,
 
-    OBJC_TAG_First60BitPayload = 0, 
-    OBJC_TAG_Last60BitPayload  = 6, 
-    OBJC_TAG_First52BitPayload = 8, 
+    OBJC_TAG_First60BitPayload = 0,
+    OBJC_TAG_Last60BitPayload  = 6,
+    OBJC_TAG_First52BitPayload = 8,
     OBJC_TAG_Last52BitPayload  = 263,
 
     OBJC_TAG_RESERVED_264      = 264
@@ -355,7 +352,7 @@ typedef enum objc_tag_index_t objc_tag_index_t;
 
 // Returns true if tagged pointers are enabled.
 // The other functions below must not be called if tagged pointers are disabled.
-static inline bool 
+static inline bool
 _objc_taggedPointersEnabled(void);
 
 // Register a class for a tagged pointer tag.
@@ -380,13 +377,13 @@ _objc_makeTaggedPointer(objc_tag_index_t tag, uintptr_t payload);
 
 // Return true if ptr is a tagged pointer object.
 // Does not check the validity of ptr's class.
-static inline bool 
+static inline bool
 _objc_isTaggedPointer(const void * _Nullable ptr);
 
 // Extract the tag value from the given tagged pointer object.
 // Assumes ptr is a valid tagged pointer object.
 // Does not check the validity of ptr's tag.
-static inline objc_tag_index_t 
+static inline objc_tag_index_t
 _objc_getTaggedPointerTag(const void * _Nullable ptr);
 
 // Extract the payload from the given tagged pointer object.
@@ -491,7 +488,6 @@ static inline uintptr_t _objc_obfuscatedTagToBasicTag(uintptr_t tag) {
     return 7;
 }
 #endif
-
 /// tagged pointer 编码
 static inline void * _Nonnull
 _objc_encodeTaggedPointer(uintptr_t ptr)
@@ -535,7 +531,8 @@ _objc_decodeTaggedPointer(const void * _Nullable ptr)
 {
     // 反混淆指针,获取原始指针
     uintptr_t value = _objc_decodeTaggedPointer_noPermute(ptr);
-#if OBJC_SPLIT_TAGGED_POINTERS // ARM64 平台下
+    // ARM64 平台下
+#if OBJC_SPLIT_TAGGED_POINTERS
     // 获取基础的 tag index
     uintptr_t basicTag = (value >> _OBJC_TAG_INDEX_SHIFT) & _OBJC_TAG_INDEX_MASK;
     // 原始数据的 tag index 位置清零
@@ -545,7 +542,6 @@ _objc_decodeTaggedPointer(const void * _Nullable ptr)
 #endif
     return value;
 }
-
 // 如果启用了标记指针，则返回 true。
 // 如果标记指针被禁用，则不能调用下面的其他函数。
 static inline bool
@@ -555,7 +551,7 @@ _objc_taggedPointersEnabled(void)
     return (objc_debug_taggedpointer_mask != 0);
 }
 
-/// 根据给定的标签和有效的负载(对象内容)创建一个tagged pointer对象
+// 根据给定的标签和有效的负载(对象内容)创建一个tagged pointer对象
 static inline void * _Nonnull
 _objc_makeTaggedPointer(objc_tag_index_t tag, uintptr_t value)
 {
@@ -563,7 +559,7 @@ _objc_makeTaggedPointer(objc_tag_index_t tag, uintptr_t value)
     // They are reversed here for payload insertion.
 
     // ASSERT(_objc_taggedPointersEnabled());
-    /// 判断 tag index 是否<= 6,其实是判断当前对象是否有扩展标志,是不是属于<=6的类
+    // 判断 tag index 是否<= 6,其实是判断当前对象是否有扩展标志,是不是属于<=6的类
     if (tag <= OBJC_TAG_Last60BitPayload) {
         // ASSERT(((value << _OBJC_TAG_PAYLOAD_RSHIFT) >> _OBJC_TAG_PAYLOAD_LSHIFT) == value);
         /*
@@ -574,8 +570,8 @@ _objc_makeTaggedPointer(objc_tag_index_t tag, uintptr_t value)
          5. 将最终的结果赋值给变量 result，并当做参数传入 _objc_encodeTaggedPointer函数进行编码，并返回结果。
          */
         uintptr_t result =
-            (_OBJC_TAG_MASK | 
-             ((uintptr_t)tag << _OBJC_TAG_INDEX_SHIFT) | 
+            (_OBJC_TAG_MASK |
+             ((uintptr_t)tag << _OBJC_TAG_INDEX_SHIFT) |
              ((value << _OBJC_TAG_PAYLOAD_RSHIFT) >> _OBJC_TAG_PAYLOAD_LSHIFT));
         return _objc_encodeTaggedPointer(result);
     } else {
@@ -597,25 +593,23 @@ _objc_makeTaggedPointer(objc_tag_index_t tag, uintptr_t value)
     }
 }
 
-static inline bool 
+static inline bool
 _objc_isTaggedPointer(const void * _Nullable ptr)
 {
     return ((uintptr_t)ptr & _OBJC_TAG_MASK) == _OBJC_TAG_MASK;
 }
-
 /// 对象的 ptr 是否是 nil 或者 tagged pointer
 static inline bool
 _objc_isTaggedPointerOrNil(const void * _Nullable ptr)
 {
-    // this function is here so that clang can turn this intob
+    // this function is here so that clang can turn this into
     // a comparison with NULL when this is appropriate
     // it turns out it's not able to in many cases without this
     return !ptr || ((uintptr_t)ptr & _OBJC_TAG_MASK) == _OBJC_TAG_MASK;
 }
-
 /// 获取 tag
-static inline objc_tag_index_t 
-_objc_getTaggedPointerTag(const void * _Nullable ptr) 
+static inline objc_tag_index_t
+_objc_getTaggedPointerTag(const void * _Nullable ptr)
 {
     // ASSERT(_objc_isTaggedPointer(ptr));
     // 先将 tagged pointer 解码
@@ -637,7 +631,7 @@ _objc_getTaggedPointerTag(const void * _Nullable ptr)
 }
 // 无扩展,获取 value
 static inline uintptr_t
-_objc_getTaggedPointerValue(const void * _Nullable ptr) 
+_objc_getTaggedPointerValue(const void * _Nullable ptr)
 {
     // ASSERT(_objc_isTaggedPointer(ptr));
     // 先将 tagged pointer 解码
@@ -654,9 +648,10 @@ _objc_getTaggedPointerValue(const void * _Nullable ptr)
         return (value << _OBJC_TAG_PAYLOAD_LSHIFT) >> _OBJC_TAG_PAYLOAD_RSHIFT;
     }
 }
+
 // 有扩展,获取 value
 static inline intptr_t
-_objc_getTaggedPointerSignedValue(const void * _Nullable ptr) 
+_objc_getTaggedPointerSignedValue(const void * _Nullable ptr)
 {
     // ASSERT(_objc_isTaggedPointer(ptr));
     // 先将 tagged pointer 解码
@@ -693,7 +688,7 @@ _objc_getTaggedPointerRawPointerValue(const void * _Nullable ptr) {
  *
  * @return The IMP corresponding to the instance method implemented by
  * the class of \e obj.
- * 
+ *
  * @note Equivalent to:
  *
  * class_getMethodImplementation(object_getClass(obj), name);
@@ -894,23 +889,23 @@ objc_alloc_init(Class _Nullable cls)
 
 OBJC_EXPORT id _Nullable
 objc_opt_new(Class _Nullable cls)
-	OBJC_AVAILABLE(10.15, 13.0, 13.0, 6.0, 5.0);
+    OBJC_AVAILABLE(10.15, 13.0, 13.0, 6.0, 5.0);
 
 OBJC_EXPORT id _Nullable
 objc_opt_self(id _Nullable obj)
-	OBJC_AVAILABLE(10.15, 13.0, 13.0, 6.0, 5.0);
+    OBJC_AVAILABLE(10.15, 13.0, 13.0, 6.0, 5.0);
 
 OBJC_EXPORT Class _Nullable
 objc_opt_class(id _Nullable obj)
-	OBJC_AVAILABLE(10.15, 13.0, 13.0, 6.0, 5.0);
+    OBJC_AVAILABLE(10.15, 13.0, 13.0, 6.0, 5.0);
 
 OBJC_EXPORT BOOL
 objc_opt_respondsToSelector(id _Nullable obj, SEL _Nullable sel)
-	OBJC_AVAILABLE(10.15, 13.0, 13.0, 6.0, 5.0);
+    OBJC_AVAILABLE(10.15, 13.0, 13.0, 6.0, 5.0);
 
 OBJC_EXPORT BOOL
 objc_opt_isKindOfClass(id _Nullable obj, Class _Nullable cls)
-	OBJC_AVAILABLE(10.15, 13.0, 13.0, 6.0, 5.0);
+    OBJC_AVAILABLE(10.15, 13.0, 13.0, 6.0, 5.0);
 
 
 OBJC_EXPORT BOOL
@@ -969,34 +964,34 @@ OBJC_EXPORT id _Nullable
 objc_loadWeakRetained(id _Nullable * _Nonnull location)
     OBJC_AVAILABLE(10.7, 5.0, 9.0, 1.0, 2.0);
 
-OBJC_EXPORT id _Nullable 
+OBJC_EXPORT id _Nullable
 objc_initWeak(id _Nullable * _Nonnull location, id _Nullable val)
     OBJC_AVAILABLE(10.7, 5.0, 9.0, 1.0, 2.0);
 
-// Like objc_storeWeak, but stores nil if the new object is deallocating 
+// Like objc_storeWeak, but stores nil if the new object is deallocating
 // or the new object's class does not support weak references.
 // Returns the value stored (either the new object or nil).
 OBJC_EXPORT id _Nullable
 objc_storeWeakOrNil(id _Nullable * _Nonnull location, id _Nullable obj)
     OBJC_AVAILABLE(10.11, 9.0, 9.0, 1.0, 2.0);
 
-// Like objc_initWeak, but stores nil if the new object is deallocating 
+// Like objc_initWeak, but stores nil if the new object is deallocating
 // or the new object's class does not support weak references.
 // Returns the value stored (either the new object or nil).
 OBJC_EXPORT id _Nullable
-objc_initWeakOrNil(id _Nullable * _Nonnull location, id _Nullable val) 
+objc_initWeakOrNil(id _Nullable * _Nonnull location, id _Nullable val)
     OBJC_AVAILABLE(10.11, 9.0, 9.0, 1.0, 2.0);
 
 OBJC_EXPORT void
-objc_destroyWeak(id _Nullable * _Nonnull location) 
+objc_destroyWeak(id _Nullable * _Nonnull location)
     OBJC_AVAILABLE(10.7, 5.0, 9.0, 1.0, 2.0);
 
-OBJC_EXPORT void 
+OBJC_EXPORT void
 objc_copyWeak(id _Nullable * _Nonnull to, id _Nullable * _Nonnull from)
     OBJC_AVAILABLE(10.7, 5.0, 9.0, 1.0, 2.0);
 
-OBJC_EXPORT void 
-objc_moveWeak(id _Nullable * _Nonnull to, id _Nullable * _Nonnull from) 
+OBJC_EXPORT void
+objc_moveWeak(id _Nullable * _Nonnull to, id _Nullable * _Nonnull from)
     OBJC_AVAILABLE(10.7, 5.0, 9.0, 1.0, 2.0);
 
 
@@ -1239,3 +1234,4 @@ OBJC_EXPORT const struct preopt_cache_t * _Nonnull objc_cache_preoptCache(const 
 __END_DECLS
 
 #endif
+

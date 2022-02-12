@@ -702,6 +702,7 @@ objc_setAssociatedObject(id object, const void *key, id value, objc_AssociationP
 
 void objc_removeAssociatedObjects(id object) 
 {
+    // 对象不为空，且 has_assoc 标记为 true，表示该对象有关联对象
     if (object && object->hasAssociatedObjects()) {
         _object_remove_assocations(object, /*deallocating*/false);
     }

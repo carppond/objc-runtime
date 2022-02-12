@@ -62,14 +62,19 @@
 // Private objc_setAssociatedObject policy modifier. When an object is
 // destroyed, associated objects attached to that object that are marked with
 // this will be released after all associated objects not so marked.
+// 私有 objc_setAssociatedObject 策略修饰符，当一个对象被销毁时，附加到该对象上的被标记为
+// this 的关联对象将在所有没有被标记的关联对象之后被释放。
 //
 // In addition, such associations are not removed when calling
 // objc_removeAssociatedObjects.
+//  此外，调用时不会删除此类关联 objc_removeAssociatedObjects。
 //
 // NOTE: This should be used sparingly. Performance will be poor when a single
 // object has more than a few (deliberately vague) associated objects marked
 // with this flag. If you're not sure if you should use this, you should not use
 // this!
+// 注意：这应该谨慎使用。 单的时候性能会很差对象具有多个（故意模糊）标记的关联对象
+// 带着这面旗帜。 如果你不确定你是否应该使用它，你不应该使用它！
 #define _OBJC_ASSOCIATION_SYSTEM_OBJECT (1 << 16)
 
 __BEGIN_DECLS

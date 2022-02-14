@@ -562,6 +562,9 @@ typedef struct classref * classref_t;
 * The target address is computed by taking the address of this struct
 * and adding the offset stored within it. This is a 32-bit signed
 * offset giving ±2GB of range.
+ RelativePointer<T> 一个指针，存储为距该偏移地址的偏移量。
+ 目标地址是通过获取此结构的地址并添加存储在其中的偏移量来计算的。
+ 这是一个 32 位有符号偏移量，提供 ±2GB 的范围。
 **********************************************************************/
 template <typename T>
 struct RelativePointer: nocopy_t {
@@ -733,7 +736,8 @@ struct method_t {
     // The representation of a "big" method. This is the traditional
     // representation of three pointers storing the selector, types
     // and implementation.
-    // “大”方法的表示。 这是存储方法名、类型和实现。
+    // “大”方法的结构体。 包含3个字段：方法名、类型和实现。
+    // "big" 传统意义上的方法信息
     struct big {
         SEL name; // 类名
         const char *types; // 类型
@@ -748,12 +752,14 @@ private:
 
     // The representation of a "small" method. This stores three
     // relative offsets to the name, types, and implementation.
+    // "small" 方法结构体，存的是name/types/imp 的相对偏移量
     struct small {
         // The name field either refers to a selector (in the shared
         // cache) or a selref (everywhere else).
+        // name 字段要么引用selector（在共享缓存中），要么引用 selref（其他任何地方）
         RelativePointer<const void *> name;
-        RelativePointer<const char *> types;
-        RelativePointer<IMP> imp;
+        RelativePointer<const char *> types; // 方法类型
+        RelativePointer<IMP> imp;// 方法实现的相对偏移
 
         bool inSharedCache() const {
             return (CONFIG_SHARED_CACHE_RELATIVE_DIRECT_SELECTORS &&

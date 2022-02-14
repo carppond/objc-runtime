@@ -293,6 +293,7 @@
 // offset to a selector. When set to 0, small methods in the shared
 // cache have the same format as other small methods, with an offset
 // to a selref.
+/// 设置为 1 时，共享缓存中的"small"方法对selector有直接偏移。 当设置为 0 时，共享缓存中的小方法与其他小方法具有相同的格式，并带有一个 selref 的偏移量。
 #define CONFIG_SHARED_CACHE_RELATIVE_DIRECT_SELECTORS 1
 
 #endif

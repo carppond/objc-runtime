@@ -93,6 +93,7 @@
 // class does not allow associated objects on its instances
 #define RW_FORBIDS_ASSOCIATED_OBJECTS       (1<<20)
 // class has started realizing but not yet completed it
+// 类不允许在其实例上关联对象
 #define RW_REALIZING          (1<<19)
 
 #if CONFIG_USE_PREOPT_CACHES
@@ -724,6 +725,7 @@ static inline bool inSharedCache(uintptr_t ptr);
 }
 
 struct method_t {
+    // 小法列表标志
     static const uint32_t smallMethodListFlag = 0x80000000;
 
     method_t(const method_t &other) = delete;
@@ -731,13 +733,15 @@ struct method_t {
     // The representation of a "big" method. This is the traditional
     // representation of three pointers storing the selector, types
     // and implementation.
+    // “大”方法的表示。 这是存储方法名、类型和实现。
     struct big {
-        SEL name;
-        const char *types;
-        MethodListIMP imp;
+        SEL name; // 类名
+        const char *types; // 类型
+        MethodListIMP imp;// 方法实现
     };
 
 private:
+    // 是否是小方法
     bool isSmall() const {
         return ((uintptr_t)this & 1) == 1;
     }
@@ -756,7 +760,7 @@ private:
                     objc::inSharedCache((uintptr_t)this));
         }
     };
-
+    
     small &small() const {
         ASSERT(isSmall());
         return *(struct small *)((uintptr_t)this & ~(uintptr_t)1);
@@ -2192,22 +2196,31 @@ struct swift_class_t : objc_class {
 
 
 struct category_t {
+    // 分类的名字
     const char *name;
+    // 所属的类
     classref_t cls;
+    // 实例方法列表
     WrappedPtr<method_list_t, PtrauthStrip> instanceMethods;
+    // 类方法列表
     WrappedPtr<method_list_t, PtrauthStrip> classMethods;
+    // 协议列表
     struct protocol_list_t *protocols;
+    // 实例属性列表
     struct property_list_t *instanceProperties;
     // Fields below this point are not always present on disk.
+    // 类属性列表?
     struct property_list_t *_classProperties;
 
+    // 返回实例方法列表或者类方法列表
+    // 从这里也可以看出,类方法类别存在元类里
     method_list_t *methodsForMeta(bool isMeta) {
         if (isMeta) return classMethods;
         else return instanceMethods;
     }
-
+    //
     property_list_t *propertiesForMeta(bool isMeta, struct header_info *hi);
-    
+    // 协议列表,元类没有协议列表
     protocol_list_t *protocolsForMeta(bool isMeta) {
         if (isMeta) return nullptr;
         else return protocols;

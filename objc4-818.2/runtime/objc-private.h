@@ -243,6 +243,7 @@ private:
 #if __OBJC2__
 typedef struct method_t *Method;
 typedef struct ivar_t *Ivar;
+// 声明 struct category_t * 的别名为Category
 typedef struct category_t *Category;
 typedef struct property_t *objc_property_t;
 #else

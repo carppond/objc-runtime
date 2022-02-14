@@ -472,24 +472,37 @@ objc_object::hasAssociatedObjects()
 inline void
 objc_object::setHasAssociatedObjects()
 {
+    // 如果是 TaggedPointer 类型直接返回
     if (isTaggedPointer()) return;
-
+    //满足以下条件, 进判断
+    // 1. 纯指针(非优化过的 isa)
+    // 2. 类的相关方法重写过(具体看hasCustomRR的注释)
+    // 3. 非未实现的isFutur类
+    // 4. 非元类
     if (slowpath(!hasNonpointerIsa() && ISA()->hasCustomRR()) && !ISA()->isFuture() && !ISA()->isMetaClass()) {
+        // 获取 _noteAssociatedObjects 的方法
         void(*setAssoc)(id, SEL) = (void(*)(id, SEL)) object_getMethodImplementation((id)this, @selector(_noteAssociatedObjects));
+        // 如果 _noteAssociatedObjects 方法不是来自消息转发
         if ((IMP)setAssoc != _objc_msgForward) {
+            // 找到了方法 _noteAssociatedObjects,调用方法
             (*setAssoc)((id)this, @selector(_noteAssociatedObjects));
         }
     }
-
+    // 设置新的 isa
     isa_t newisa, oldisa = LoadExclusive(&isa.bits);
     do {
         newisa = oldisa;
+        // 纯指针(非优化过的 isa) || 已经关联过对象
         if (!newisa.nonpointer  ||  newisa.has_assoc) {
+            //在 arm64 平台下，清除对 &isa.bits 的独占访问标记。
             ClearExclusive(&isa.bits);
             return;
         }
+        // 关联对象标记
         newisa.has_assoc = true;
     } while (slowpath(!StoreExclusive(&isa.bits, &oldisa.bits, newisa.bits)));
+    // 如果保存 newisa.bits 到 isa失败,就执行循环
+    // 保存成功,退出循环
 }
 
 

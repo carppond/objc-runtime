@@ -5459,12 +5459,16 @@ _category_getLoadMethod(Category cat)
 /***********************************************************************
 * category_t::propertiesForMeta
 * Return a category's instance or class properties.
+* 返回类或者实例类的属性
 * hi is the image containing the category.
+* hi 是包含 category 的镜像
 **********************************************************************/
 property_list_t *
 category_t::propertiesForMeta(bool isMeta, struct header_info *hi)
 {
+    // 如果当前类不是元类,直接返回实例属性类别
     if (!isMeta) return instanceProperties;
+    // 如果当前类是元类,就返回类的属性列表
     else if (hi->info()->hasCategoryClassProperties()) return _classProperties;
     else return nil;
 }

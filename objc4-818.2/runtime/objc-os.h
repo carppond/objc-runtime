@@ -206,6 +206,8 @@ StoreReleaseExclusive(uintptr_t *dst, uintptr_t *oldvalue, uintptr_t value)
     return true;
 }
 
+// 在 mac、arm64e 下不执行任何操作，只在 arm64 下执行 __builtin_arm_clrex();
+//在 arm64 平台下，清除对 &isa.bits 的独占访问标记。
 static ALWAYS_INLINE
 void
 ClearExclusive(uintptr_t *dst __unused)

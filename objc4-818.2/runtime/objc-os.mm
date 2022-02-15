@@ -915,18 +915,31 @@ void _objc_atfork_child()
 
 /***********************************************************************
 * _objc_init
-* Bootstrap initialization. Registers our image notifier with dyld.
+* Bootstrap initialization.
+* 引导程序初始化。
+*
+* Registers our image notifier with dyld.
+* 通过 dyld 来注册我们的境像（image）。
 * Called by libSystem BEFORE library initialization time
+* library 初始化之前由 libSystem 调用。
 **********************************************************************/
 
 void _objc_init(void)
 {
+    // 用一个静态变量标记，保证只进行一次初始化
     static bool initialized = false;
     if (initialized) return;
     initialized = true;
     
     // fixme defer initialization until an objc-using image is found?
+    // fixme 推迟初始化，直到找到一个 objc-using image？
+    
+    // 读取会影响 runtime 的环境变量
+    // 如果需要，还可以打印一些环境变量
+    // 环境变量的初始化
     environ_init();
+    // thread local stroage
+    // 本地线程初始化
     tls_init();
     static_init();
     runtime_init();

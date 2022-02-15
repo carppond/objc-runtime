@@ -568,11 +568,13 @@ typedef struct classref * classref_t;
 **********************************************************************/
 template <typename T>
 struct RelativePointer: nocopy_t {
-    int32_t offset;
+    int32_t offset; // 偏移
 
     T get() const {
+        // 如果偏移量位 0,直接返回
         if (offset == 0)
             return nullptr;
+        // 通过偏移计算出当前数据
         uintptr_t base = (uintptr_t)&offset;
         uintptr_t signExtendedOffset = (uintptr_t)(intptr_t)offset;
         uintptr_t pointer = base + signExtendedOffset;
@@ -600,86 +602,135 @@ struct PointerModifierNop {
 /***********************************************************************
 * entsize_list_tt<Element, List, FlagMask, PointerModifier>
 * Generic implementation of an array of non-fragile structs.
+* entsize_list_tt<Element, List, FlagMask, PointerModifier> 非脆弱结构数组的通用实现。
 *
 * Element is the struct type (e.g. method_t)
+* Element 是结构体类型，如: method_t
+*
 * List is the specialization of entsize_list_tt (e.g. method_list_t)
+* List 是 entsize_list_tt 指定类型，如: method_list_t
+*
 * FlagMask is used to stash extra bits in the entsize field
 *   (e.g. method list fixup markers)
+* 标记位 FlagMask 用于将多余的位藏匿在 entsize 字段中, 如: 方法列表修复标记
 * PointerModifier is applied to the element pointers retrieved from
 * the array.
+* PointerModifier 应用于从数组中检索到的元素指针。
 **********************************************************************/
 template <typename Element, typename List, uint32_t FlagMask, typename PointerModifier = PointerModifierNop>
 struct entsize_list_tt {
+    // entsize（entry 的大小） 和 Flags 以掩码形式保存在 entsizeAndFlags 中
     uint32_t entsizeAndFlags;
+    // entsize_list_tt 的容量
     uint32_t count;
-
+    // 元素的大小
     uint32_t entsize() const {
         return entsizeAndFlags & ~FlagMask;
     }
+    // 从 entsizeAndFlags 中取出 flags
     uint32_t flags() const {
         return entsizeAndFlags & FlagMask;
     }
-
-    Element& getOrEnd(uint32_t i) const { 
+    // 根据索引返回指定元素的的引用，这 i 可以等于 count
+    // 意思是可以返回最后一个元素的后面
+    Element& getOrEnd(uint32_t i) const {
+        // 断言, i 不能超过 count
         ASSERT(i <= count);
+        // 首先获取当前对象的大小加上i*entsize()
+        // 然后把当前对象转成 uint8_t *) 加上上一步的结果, 转化为 Element指针
+        // 然后取出 Element 指针指向的内容返回
         return *PointerModifier::modify(*this, (Element *)((uint8_t *)this + sizeof(*this) + i*entsize()));
     }
+    // 在索引返回内返回 Element 引用
     Element& get(uint32_t i) const { 
         ASSERT(i < count);
         return getOrEnd(i);
     }
-
+    // 容器占用的的内存总大小,以字节为单位
     size_t byteSize() const {
         return byteSize(entsize(), count);
     }
-    
+    // entsize 单个元素的内存大小, count 元素个数,这里是获取所有元素的内存大小
     static size_t byteSize(uint32_t entsize, uint32_t count) {
+        // 首先算出 entsize_list_tt 的大小
+        // uint32_t entsizeAndFlags  + uint32_t count;
+        // 两个成员变量的总长度 + count*entsize 个元素的长度
         return sizeof(entsize_list_tt) + count*entsize;
     }
-
+    // 自定义迭代器声明,实现在下面
     struct iterator;
-    const iterator begin() const { 
+    
+    const iterator begin() const {
+        // static_cast 是一个 c++运算符,功能是把一个表达式转换为某种类型
+        // 但是没有运行时类型检查来保证转换的安全性
+        // 把 this 强制转化为 const List*
+        // 0 通过下面 iterator 的构造函数实现可知, 把 element 指向第一个元素
+        
+        // 返回指向容器第一个元素的迭代器
         return iterator(*static_cast<const List*>(this), 0); 
     }
+    
+    // 同上,少了 2 个 const 修饰, 前面的 const 表示函数返回值为 const 不可变
+    // 后面的 const 表示函数执行过程中不改变原始对象的内容
     iterator begin() { 
         return iterator(*static_cast<const List*>(this), 0); 
     }
+    
+    // 即返回指向容器最后一个元素后面的迭代器
+    // 注意这里不是指向最后一个元素,而是指向最后一个的后面
     const iterator end() const { 
         return iterator(*static_cast<const List*>(this), count); 
     }
+    
+    // 同上,去掉两个 const 的限制
     iterator end() { 
         return iterator(*static_cast<const List*>(this), count); 
     }
 
+    // 自定义迭代器
     struct iterator {
+        // 每个元素的带下
         uint32_t entsize;
+        // 当前迭代器的索引
         uint32_t index;  // keeping track of this saves a divide in operator-
+        // 元素指针
         Element* element;
 
+        // 类型定义
         typedef std::random_access_iterator_tag iterator_category;
         typedef Element value_type;
         typedef ptrdiff_t difference_type;
         typedef Element* pointer;
         typedef Element& reference;
-
+        // 构造函数
         iterator() { }
 
+        // 构造函数
         iterator(const List& list, uint32_t start = 0)
             : entsize(list.entsize())
             , index(start)
             , element(&list.getOrEnd(start))
         { }
 
+        // 重载操作符
         const iterator& operator += (ptrdiff_t delta) {
+            // 指针偏移
             element = (Element*)((uint8_t *)element + delta*entsize);
+            // 更新 index
             index += (int32_t)delta;
+            // 返回 *this
             return *this;
         }
+        // 重载操作符
         const iterator& operator -= (ptrdiff_t delta) {
+            // 指针偏移
             element = (Element*)((uint8_t *)element - delta*entsize);
-            index -= (int32_t)delta;
+            // 更新 index
+            index -= (int32_t)delta;]
+            // 返回 *this
             return *this;
         }
+        // 以下都是重载操作符, 都是 -= 和 += 的运算
         const iterator operator + (ptrdiff_t delta) const {
             return iterator(*this) += delta;
         }
@@ -695,26 +746,33 @@ struct entsize_list_tt {
         iterator operator -- (int) {
             iterator result(*this); *this -= 1; return result;
         }
-
+        
+        // 两个迭代器之间的距离
         ptrdiff_t operator - (const iterator& rhs) const {
             return (ptrdiff_t)this->index - (ptrdiff_t)rhs.index;
         }
 
+        // 返回元素指针或引用
         Element& operator * () const { return *element; }
         Element* operator -> () const { return element; }
 
         operator Element& () const { return *element; }
 
+        // 等于判断
         bool operator == (const iterator& rhs) const {
             return this->element == rhs.element;
         }
+        
+        // 不等
         bool operator != (const iterator& rhs) const {
             return this->element != rhs.element;
         }
 
+        // 小于比较
         bool operator < (const iterator& rhs) const {
             return this->element < rhs.element;
         }
+        // 大于比较
         bool operator > (const iterator& rhs) const {
             return this->element > rhs.element;
         }
@@ -746,6 +804,7 @@ struct method_t {
 
 private:
     // 是否是小方法
+    // 通过当前类的指针 & 1 获取是否是 1 来判断当前类是否是 1
     bool isSmall() const {
         return ((uintptr_t)this & 1) == 1;
     }
@@ -757,33 +816,40 @@ private:
         // The name field either refers to a selector (in the shared
         // cache) or a selref (everywhere else).
         // name 字段要么引用selector（在共享缓存中），要么引用 selref（其他任何地方）
-        RelativePointer<const void *> name;
-        RelativePointer<const char *> types; // 方法类型
+        RelativePointer<const void *> name; // name的相对偏移
+        RelativePointer<const char *> types; // 方法类型的相对偏移
         RelativePointer<IMP> imp;// 方法实现的相对偏移
-
+        
+        // 当前类是否在共享缓存中
         bool inSharedCache() const {
             return (CONFIG_SHARED_CACHE_RELATIVE_DIRECT_SELECTORS &&
                     objc::inSharedCache((uintptr_t)this));
         }
     };
     
+    // 获取small 信息
     small &small() const {
         ASSERT(isSmall());
         return *(struct small *)((uintptr_t)this & ~(uintptr_t)1);
     }
-
+    // 根据是否加锁获取要替换的 imp
     IMP remappedImp(bool needsLock) const;
+    //  替换 imp/存储 im 到smallMethodIMPMap中
     void remapImp(IMP imp);
+    // 获取 small 方法的信息: 方法名和参数类型
     objc_method_description *getSmallDescription() const;
 
 public:
+    // big size
     static const auto bigSize = sizeof(struct big);
+    // small size
     static const auto smallSize = sizeof(struct small);
 
     // The pointer modifier used with method lists. When the method
     // list contains small methods, set the bottom bit of the pointer.
     // We use that bottom bit elsewhere to distinguish between big
     // and small methods.
+    // 与方法列表一起使用的指针修饰符。 当方法列表包含小方法时，设置指针的底部位。 我们在别处使用底部位来区分大小方法。
     struct pointer_modifier {
         template <typename ListType>
         static method_t *modify(const ListType &list, method_t *ptr) {
@@ -792,66 +858,104 @@ public:
             return ptr;
         }
     };
-
+    // 获取 big 信息
     big &big() const {
         ASSERT(!isSmall());
         return *(struct big *)this;
     }
-
+    
+    // 获取方法
     SEL name() const {
+        // 如果当前方法是 small 方法
         if (isSmall()) {
+            /// 通过偏移计算,获取方法
             return (small().inSharedCache()
                     ? (SEL)small().name.get()
                     : *(SEL *)small().name.get());
         } else {
+            // 从 big 中获取方法
             return big().name;
         }
     }
+    // 获取方法参数类型
     const char *types() const {
+        // 如果是方法是 small 类型,通过偏移计算出参数类型
+        // 如果方法是 big 类型,之火获取参数类型
         return isSmall() ? small().types.get() : big().types;
     }
+    // 获取方法实现
     IMP imp(bool needsLock) const {
+        // 如果是 small 类型
         if (isSmall()) {
+            // 加锁,从 smallMethodIMPMap 中获取方法的实现
             IMP imp = remappedImp(needsLock);
             if (!imp)
+                /*
+                 https://opensource.apple.com/source/xnu/xnu-4903.241.1/EXTERNAL_HEADERS/ptrauth.h.auto.html
+                 ptrauth_sign_unauthenticated:
+                    使用特定键为给定的指针值添加签名，使用给定的额外数据作为签名过程的盐。
+                 
+                    此操作不验证原始值，因此，如果攻击者可能控制该值。
+
+                    该值必须是指针类型的表达式。键必须是 ptrauth_key 类型的常量表达式。
+                    额外数据必须是指针或整数类型的表达式；如果是整数，它将被强制转换为 ptrauth_extra_data_t。
+                    结果将具有与原始值相同的类型。
+                 
+                 ptrauth_key_function_pointer
+                    用于签署 C 函数指针的密钥。额外数据始终为 0
+                 */
+                // 从 small 中获取imp, 并用 ptrauth_key_function_pointer 给 imp 签名
                 imp = ptrauth_sign_unauthenticated(small().imp.get(),
                                                    ptrauth_key_function_pointer, 0);
             return imp;
         }
+        // 从 big 中获取 imp
         return big().imp;
     }
-
+    // 将small name 设为 SEL
     SEL getSmallNameAsSEL() const {
+        // 如果不在共享缓存中,断言
         ASSERT(small().inSharedCache());
+        // 从偏移中取出 name,并转成 sel
         return (SEL)small().name.get();
     }
-
+    // 将small name 设为 SEL 引用
     SEL getSmallNameAsSELRef() const {
         ASSERT(!small().inSharedCache());
         return *(SEL *)small().name.get();
     }
-
+    // 设置 big/small 的 name
     void setName(SEL name) {
+        // small 类型
         if (isSmall()) {
+            // 已经在缓存中,断言
             ASSERT(!small().inSharedCache());
+            // 设置 small 的 name
             *(SEL *)small().name.get() = name;
         } else {
+            // 设置 big 的 name
             big().name = name;
         }
     }
-
+    // 设置 big/small 的 imp
     void setImp(IMP imp) {
+        // small 类型
         if (isSmall()) {
+            // 存储 imp 到 smallMethodIMPMap 中
             remapImp(imp);
         } else {
+            // 存储 imp 到 big
             big().imp = imp;
         }
     }
-
+    // 获取 method 信息
     objc_method_description *getDescription() const {
+        // 如果当前是 small 类型,就从 getSmallDescription 中获取 method 信息
+        // 如果是 big 类型,就直接把当前对象转成 objc_method_description
         return isSmall() ? getSmallDescription() : (struct objc_method_description *)this;
     }
-
+    
+    // 将 sel 按地址排序
     struct SortBySELAddress :
     public std::binary_function<const struct method_t::big&,
                                 const struct method_t::big&, bool>
@@ -860,7 +964,7 @@ public:
                          const struct method_t::big& rhs)
         { return lhs.name < rhs.name; }
     };
-
+    // 赋值操作,将 other 的信息赋值给当前method_t,并返回
     method_t &operator=(const method_t &other) {
         ASSERT(!isSmall());
         big().name = other.name();
@@ -893,24 +997,32 @@ struct ivar_t {
 };
 
 struct property_t {
-    const char *name;
-    const char *attributes;
+    const char *name; // 属性名称
+    const char *attributes; // 属性的类型 type encoding
 };
 
 // Two bits of entsize are used for fixup markers.
+// 两位 entsize 用于修正标记
 // Reserve the top half of entsize for more flags. We never
 // need entry sizes anywhere close to 64kB.
-//
+// 为更多标志保留 entsize 的上半部分.永远不需要接近64KB 条目大小
 // Currently there is one flag defined: the small method list flag,
 // method_t::smallMethodListFlag. Other flags are currently ignored.
 // (NOTE: these bits are only ignored on runtimes that support small
 // method lists. Older runtimes will treat them as part of the entry
 // size!)
+// 目前定义了一个标志:  small 方法列表标志 method_t::smallMethodListFlag.当前忽略其他标志.
+// 注意: 这些位仅在支持 small 方法列表时被忽略.较旧的运行时会把它们视为条目的一部分
+//
 struct method_list_t : entsize_list_tt<method_t, method_list_t, 0xffff0003, method_t::pointer_modifier> {
+    // 是否是唯一的
     bool isUniqued() const;
+    // 是否是固定的
     bool isFixedUp() const;
+    // 设置固定
     void setFixedUp();
 
+    // 返回 meth 的 index(指针距离/元素大小)
     uint32_t indexOfMethod(const method_t *meth) const {
         uint32_t i = 
             (uint32_t)(((uintptr_t)meth - (uintptr_t)this) / entsize());
@@ -918,27 +1030,42 @@ struct method_list_t : entsize_list_tt<method_t, method_list_t, 0xffff0003, meth
         return i;
     }
 
+    // 是否是 small 方法列表
     bool isSmallList() const {
+        // flag & smallMethodListFlag = 0x80000000;
         return flags() & method_t::smallMethodListFlag;
     }
-
+    
+    // 是否达到预期大小
     bool isExpectedSize() const {
+        // 如果是small方法列表
         if (isSmallList())
+            // 元素大小 == struct small 的大小
             return entsize() == method_t::smallSize;
         else
+            // 元素大小 == struct  big 的大小
             return entsize() == method_t::bigSize;
     }
-
+    
+    // 复制一份 method_list_t
     method_list_t *duplicate() const {
+        // 临时变量
         method_list_t *dup;
+        // 如果是small 方法列表
         if (isSmallList()) {
+            // 申请大小 byteSize(method_t::bigSize, count) 的空间,用于储存 method_list_t
             dup = (method_list_t *)calloc(byteSize(method_t::bigSize, count), 1);
+            // 设置 entsizeAndFlags
             dup->entsizeAndFlags = method_t::bigSize;
-        } else {
+        } else { // 如果big 方法列表
+            // 申请大小为 this->byteSize() 的空间,存储 method_list_t
             dup = (method_list_t *)calloc(this->byteSize(), 1);
+            // // 设置 entsizeAndFlags
             dup->entsizeAndFlags = this->entsizeAndFlags;
         }
+        // 设置容量
         dup->count = this->count;
+        // 原数据从 begin() 到 end() 复制一份到以dup->begin()为起始地址的空间内
         std::copy(begin(), end(), dup->begin());
         return dup;
     }
@@ -1016,26 +1143,37 @@ struct protocol_t : objc_object {
 
 struct protocol_list_t {
     // count is pointer-sized by accident.
-    uintptr_t count;
+    uintptr_t count; // 指针长度/大小
+    
+    // 此处虽然数组长度用的是 0,不过它是运行期可变的
+    // 其实 C99 的一种写法,允许在运行期动态的申请内存
     protocol_ref_t list[0]; // variable-size
 
+    // 字节容量
     size_t byteSize() const {
+        // 首先获取数组的大小,在和指针长度相乘
+        // 上一步结果加上当前对象的大小
         return sizeof(*this) + count*sizeof(list[0]);
     }
-
+    
+    // 复制函数
     protocol_list_t *duplicate() const {
         return (protocol_list_t *)memdup(this, this->byteSize());
     }
 
+    // 类型定义
     typedef protocol_ref_t* iterator;
     typedef const protocol_ref_t* const_iterator;
 
+    // begin 指针
     const_iterator begin() const {
         return list;
     }
+    // 可变的 begin 指针
     iterator begin() {
         return list;
     }
+    // 不可变的结束指针位置
     const_iterator end() const {
         return list + count;
     }

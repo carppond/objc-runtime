@@ -57,6 +57,7 @@ static Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized
 
 struct locstamped_category_t {
     category_t *cat;
+    // header 数据
     struct header_info *hi;
 };
 enum {
@@ -227,48 +228,69 @@ bool didCallDyldNotifyRegister = false;
 /***********************************************************************
 * smallMethodIMPMap
 * The map from small method pointers to replacement IMPs.
+* 从小方法指针到替换 IMP 的映射。
 *
 * Locking: runtimeLock must be held when accessing this map.
+* 访问此地图时必须持有 runtimeLock。
 **********************************************************************/
 namespace objc {
     static objc::LazyInitDenseMap<const method_t *, IMP> smallMethodIMPMap;
 }
 
 static IMP method_t_remappedImp_nolock(const method_t *m) {
+    // 加锁
     runtimeLock.assertLocked();
+    // 从 smallMethodIMPMap 中获取函数所在的 map,如果未初始化返回nullptr
     auto *map = objc::smallMethodIMPMap.get(false);
     if (!map)
+        // 暂未初始化,返回nullptr
         return nullptr;
+    // 从获取的 map,根据 method_t 获取 imp
     auto iter = map->find(m);
+    // 如果map 中没有找到,返回nullptr
     if (iter == map->end())
         return nullptr;
+    // 找到 imp
     return iter->second;
 }
 
+//重新映射方法实现
+//
 IMP method_t::remappedImp(bool needsLock) const {
     ASSERT(isSmall());
+    // 需要加锁
     if (needsLock) {
+        // 加锁
         mutex_locker_t guard(runtimeLock);
+        // 获取当前函数的 imp
         return method_t_remappedImp_nolock(this);
     } else {
+        // 获取当前函数的 imp
         return method_t_remappedImp_nolock(this);
     }
 }
 
 void method_t::remapImp(IMP imp) {
+    // 如果不是 small 类型的方法进断言
     ASSERT(isSmall());
+    // 加锁
     runtimeLock.assertLocked();
+    // 从smallMethodIMPMap中获取函数实现的指针
     auto *map = objc::smallMethodIMPMap.get(true);
+    // 替换 imp
     (*map)[this] = imp;
 }
 
+// 获取 small 的函数信息
 objc_method_description *method_t::getSmallDescription() const {
+    // 以 const method_t *为 key, objc_method_description 为 value 的 静态map
     static objc::LazyInitDenseMap<const method_t *, objc_method_description *> map;
-
+    // 加锁
     mutex_locker_t guard(runtimeLock);
-
+    // 从 map 中获取objc_method_description
     auto &ptr = (*map.get(true))[this];
     if (!ptr) {
+        // 没有获取到创建一个,并存取到 map 中
         ptr = (objc_method_description *)malloc(sizeof *ptr);
         ptr->name = name();
         ptr->types = (char *)types();
@@ -278,18 +300,27 @@ objc_method_description *method_t::getSmallDescription() const {
 
 /*
   Low two bits of mlist->entsize is used as the fixed-up marker.
+  method_list_t 的低两位用作固定标记
     Method lists from shared cache are 1 (uniqued) or 3 (uniqued and sorted).
+    来自 shared cache的 method lists 为 1(唯一) 或者  3 (唯一且已排序)
     (Protocol method lists are not sorted because of their extra parallel data)
     Runtime fixed-up method lists get 3.
+    指 method_list_t 继承 entsize_list_tt 的模版参数 FlagMask hardcode 是 0x3
 
   High two bits of protocol->flags is used as the fixed-up marker.
-  PREOPTIMIZED VERSION:
+  protocol->flags 的高两位用作固定标记
+  PREOPTIMIZED VERSION: // 预优化版本
     Protocols from shared cache are 1<<30.
+    // 来自 shared cache 的 Protocols 是 1<<30.
     Runtime fixed-up protocols get 1<<30.
-  UN-PREOPTIMIZED VERSION:
+    // Runtime fixed-up protocols 得到 1 << 30
+  UN-PREOPTIMIZED VERSION: 未预优化版本
   Protocols from shared cache are 1<<30.
+ // 来自 shared cache 的 Protocols 是 1<<30.
     Shared cache's fixups are not trusted.
+    Shared cache的修正不受信任。
     Runtime fixed-up protocols get 3<<30.
+ // Runtime fixed-up protocols 得到 3 << 30
 */
 
 static const uint32_t fixed_up_method_list = 3;
@@ -307,18 +338,26 @@ disableSharedCacheOptimizations(void)
     canonical_protocol = 0;
 }
 
+// static const uint32_t uniqued_method_list = 1;
+// 通过标志的最后一位是否为 1,来判断当前对象是否是唯一的
 bool method_list_t::isUniqued() const {
     return (flags() & uniqued_method_list) != 0;
 }
-
+// static const uint32_t fixed_up_method_list = 3;
+// 如果标志 & 3 == 3, 就说明是固定的
 bool method_list_t::isFixedUp() const {
     // Ignore any flags in the top bits, just look at the bottom two.
+    // 忽略顶部的任何标志，只看底部的两个。
     return (flags() & 0x3) == fixed_up_method_list;
 }
 
+// 设置固定
 void method_list_t::setFixedUp() {
+    // 加锁
     runtimeLock.assertLocked();
+    // 如果当前已经是固定的,断言
     ASSERT(!isFixedUp());
+    // 通过容器大小 | 3 设置是否是固定的
     entsizeAndFlags = entsize() | fixed_up_method_list;
 }
 
@@ -1095,12 +1134,22 @@ struct CoreScanner : scanner::Mixin<CoreScanner, Core, PrintCustomCore> {
 };
 
 class category_list : nocopy_t {
+    // 共同体/联合体
     union {
+        // lc 与 下面的 struct 共用内存空间
+        // is_array 表示一个数组还是只是一个 locstamped_category_t
         locstamped_category_t lc;
         struct {
+            // locstamped_category_t指针
             locstamped_category_t *array;
+            
+            // 根据数据量切换不同的存储形态。类似 weak_entry_t 的数据结构，
+            // 开始先用定长为 4 的数组保存弱引用指针，然后大于 4 以后切换为哈希数组保存，
+            // 也类似 class_rw_ext_t 中的方法列表，是保存一个方法列表指针，
+            // 还是保存一个数组每个数组元素都是一个方法列表指针
             // this aliases with locstamped_category_t::hi
             // which is an aliased pointer
+            // 位域
             uint32_t is_array :  1;
             uint32_t count    : 31;
             uint32_t size     : 32;
@@ -1108,50 +1157,65 @@ class category_list : nocopy_t {
     } _u;
 
 public:
+    // 构造函数
+    // _u 初始化列表 lc 和 struct 都为 nullptr
     category_list() : _u{{nullptr, nullptr}} { }
+    // _u 初始化
     category_list(locstamped_category_t lc) : _u{{lc}} { }
+    // 入参 category_list &&
     category_list(category_list &&other) : category_list() {
         std::swap(_u, other._u);
     }
+    // 析构函数
     ~category_list()
     {
         if (_u.is_array) {
             free(_u.array);
         }
     }
-
+    // 表示 category_t 的数量
     uint32_t count() const
     {
+        // 如果共同体的 is_array 是 1,就返回 _u.count
         if (_u.is_array) return _u.count;
+        // 如果 cat 存在就返回 1,否则 0
         return _u.lc.cat ? 1 : 0;
     }
-
+    // 内存容量
+    // locstamped_category_t 根据其结构应该是 16
     uint32_t arrayByteSize(uint32_t size) const
     {
         return sizeof(locstamped_category_t) * size;
     }
-
+    // locstamped_category_t 指针
     const locstamped_category_t *array() const
     {
         return _u.is_array ? _u.array : &_u.lc;
     }
-
+    // 拼接
     void append(locstamped_category_t lc)
     {
+        // 如果是以数组的形式保存
         if (_u.is_array) {
+            // 如果容量已经存满
             if (_u.count == _u.size) {
+                // 如果已经存满了
+                // 扩容
                 // Have a typical malloc growth:
                 // - size <=  8: grow by 2
                 // - size <= 16: grow by 4
                 // - size <= 32: grow by 8
                 // ... etc
                 _u.size += _u.size < 8 ? 2 : 1 << (fls(_u.size) - 2);
+                // 重新申请内存空间
                 _u.array = (locstamped_category_t *)reallocf(_u.array, arrayByteSize(_u.size));
             }
             _u.array[_u.count++] = lc;
-        } else if (_u.lc.cat == NULL) {
+        } else if (_u.lc.cat == NULL) { // 如果 lc.cat 为空
+            // 如果还没有保存任何数据，使用 lc 成员变量
             _u.lc = lc;
         } else {
+            // 由原始的一个 locstamped_category_t lc 转变为指针数组存储 locstamped_category_t
             locstamped_category_t *arr = (locstamped_category_t *)malloc(arrayByteSize(2));
             arr[0] = _u.lc;
             arr[1] = lc;
@@ -1161,46 +1225,64 @@ public:
             _u.count = 2;
             _u.size = 2;
         }
+        /*
+         通过当前函数可以发现:
+         1. 先使用 lc 的存储
+         2. lc 已存储的情况下,在已数组的形式存储.
+            - 数组存储时,把 lc 当做数组的第一个元素
+            - 第二个元素是用数组存储时的 cat
+         */
     }
-
+    // 擦除,只需要清除内容,并不需要释放原始的 16 字节空间
     void erase(category_t *cat)
     {
         if (_u.is_array) {
+            // 如果是以数组的形式保存
             for (int i = 0; i < _u.count; i++) {
                 if (_u.array[i].cat == cat) {
                     // shift entries to preserve list order
+                    // 移动数组,删除 cat
                     memmove(&_u.array[i], &_u.array[i+1], arrayByteSize(_u.count - i - 1));
                     return;
                 }
             }
-        } else if (_u.lc.cat == cat) {
+        } else if (_u.lc.cat == cat) { // 以 lc 的形式保存
+            // 此时只有一个 cat,都置为nil
             _u.lc.cat = NULL;
             _u.lc.hi = NULL;
         }
     }
 };
 
+// 公开继承 ExplicitInitDenseMap<Class, category_list> 的类
+// 抽象超参数分别是 Class, category_list
+// 可以理解成 Class 是 key, category_list 是 value 的哈希表
 class UnattachedCategories : public ExplicitInitDenseMap<Class, category_list>
 {
 public:
+    // 向指定的类添加 locstamped_category_t
     void addForClass(locstamped_category_t lc, Class cls)
     {
+        // 加锁
         runtimeLock.assertLocked();
-
+        //
         if (slowpath(PrintConnecting)) {
             _objc_inform("CLASS: found category %c%s(%s)",
                          cls->isMetaClassMaybeUnrealized() ? '+' : '-',
                          cls->nameForLogging(), lc.cat->name);
         }
-
+        // 向 UnattachedCategories 中添加 <Class, category_list>
         auto result = get().try_emplace(cls, lc);
         if (!result.second) {
+            // 如果cls已经存在 category_list,则吧 lc 添加到 category_list 的数组中
+            // 这里 append 是 category_list 的 append 函数
+            // result.first->second 即是 cls 对应的 category_list
             result.first->second.append(lc);
         }
     }
-
+    // 把 previously 的 categories 添加到 cls 上
     void attachToClass(Class cls, Class previously, int flags)
-    {
+    {   // 加锁
         runtimeLock.assertLocked();
         ASSERT((flags & ATTACH_CLASS) ||
                (flags & ATTACH_METACLASS) ||
@@ -1213,6 +1295,7 @@ public:
             category_list &list = it->second;
             if (flags & ATTACH_CLASS_AND_METACLASS) {
                 int otherFlags = flags & ~ATTACH_CLASS_AND_METACLASS;
+                // attachCategories 函数追加分类内容到类中去，下篇详细解析此函数
                 attachCategories(cls, list.array(), list.count(), otherFlags | ATTACH_CLASS);
                 attachCategories(cls->ISA(), list.array(), list.count(), otherFlags | ATTACH_METACLASS);
             } else {
@@ -1230,21 +1313,24 @@ public:
         auto it = map.find(cls);
         if (it != map.end()) {
             category_list &list = it->second;
+            // 移除 category_list 中保存的 cat
             list.erase(cat);
             if (list.count() == 0) {
+                // 如果 category_list 空了,把 <Class, category_list> 也移除
                 map.erase(it);
             }
         }
     }
 
     void eraseClass(Class cls)
-    {
+    {   // 加锁
         runtimeLock.assertLocked();
-
+        // 删除指定 cls 的 <Class, category_list>
         get().erase(cls);
     }
 };
 
+// unattachedCategories 是一个静态全局变量，隶属于 namespace objc，存放未追加到类的分类数据。
 static UnattachedCategories unattachedCategories;
 
 } // namespace objc

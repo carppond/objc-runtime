@@ -60,10 +60,14 @@ public:
 
 template <typename Type>
 class LazyInit {
+    // alignas(Type) 表示 _storage 内存对齐方式通抽象类型Type
+    // _storage 的长度为 sizeof(Type) 的 uint8_t 类型数组
     alignas(Type) uint8_t _storage[sizeof(Type)];
+    // 是否已经初始化过
     bool _didInit;
 
 public:
+    // 把_storage数组起始地址强制转化为Type *
     template <typename... Ts>
     Type *get(bool allowCreate, Ts &&... Args) {
         if (!_didInit) {

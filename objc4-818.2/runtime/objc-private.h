@@ -330,6 +330,7 @@ private:
     uint32_t sorted : 1;
 
 public:
+    // 判断当前指针是否在共享缓存中
     inline bool inSharedCache(uintptr_t ptr) const {
         return shared_cache.contains(ptr);
     }

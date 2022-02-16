@@ -2491,8 +2491,11 @@ objc_objectptr_t objc_unretainedPointer(id object) { return object; }
 
 void arr_init(void) 
 {
+    // 自动释放池的初始化
     AutoreleasePoolPage::init();
+    // 初始化全局的 SideTablesMap表,其中有 weak 的存放
     SideTablesMap.init();
+    // 关联函数相关AssociationsManager的初始化
     _objc_associations_init();
 }
 

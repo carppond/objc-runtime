@@ -104,8 +104,8 @@ SEL SEL_cxx_construct = NULL;
 SEL SEL_cxx_destruct = NULL;
 
 struct objc::SafeRanges objc::dataSegmentsRanges;
-header_info *FirstHeader = 0;  // NULL means empty list
-header_info *LastHeader  = 0;  // NULL means invalid; recompute it
+header_info *FirstHeader = 0;  // NULL means empty list NULL 非空表
+header_info *LastHeader  = 0;  // NULL means invalid; recompute it NULL 表示无效,重新插入
 
 // Set to true on the child side of fork() 
 // if the parent process was multithreaded when fork() was called.
@@ -269,31 +269,46 @@ objc::SafeRanges::remove(uintptr_t start, uintptr_t end)
 }
 
 /***********************************************************************
-* appendHeader.  Add a newly-constructed header_info to the list. 
+* appendHeader.  Add a newly-constructed header_info to the list.
+* 将获取的 head_info 添加到 list 中
 **********************************************************************/
 void appendHeader(header_info *hi)
 {
-    // Add the header to the header list. 
+    // Add the header to the header list.
+    // 将 mach-o header 添加到 header list 中
     // The header is appended to the list, to preserve the bottom-up order.
+    // 将 mach-o 附加到 list 中,并保持自下而上的顺序,
+    
+    // 设置 hi 的next 指向 null
     hi->setNext(NULL);
-    if (!FirstHeader) {
+    if (!FirstHeader) {// 如果当前 list 为空
         // list is empty
+        // 把 hi 插入到标头,第一个
         FirstHeader = LastHeader = hi;
     } else {
+        // list 非空
+        // LastHeader 无效,为空
         if (!LastHeader) {
             // list is not empty, but LastHeader is invalid - recompute it
+            // list 不为空，但 LastHeader 无效 - 重新计算
             LastHeader = FirstHeader;
             while (LastHeader->getNext()) LastHeader = LastHeader->getNext();
         }
         // LastHeader is now valid
+        // LastHeader 有效,有值
+        // 插入 hi 到 LastHeader 中
         LastHeader->setNext(hi);
         LastHeader = hi;
     }
 
 #if __OBJC2__
+    // 如果当前mhdr 还没有添加到dataSegmentsRanges中
     if ((hi->mhdr()->flags & MH_DYLIB_IN_CACHE) == 0) {
+        // 循环 load commands 获取seg 和偏移量
         foreach_data_segment(hi->mhdr(), [](const segmentType *seg, intptr_t slide) {
+            // 获取mhdr 所在的起始位置
             uintptr_t start = (uintptr_t)seg->vmaddr + slide;
+            // 设置当前 mhdr 信息到静态的 dataSegmentsRanges 中
             objc::dataSegmentsRanges.add(start, start + seg->vmsize);
         });
     }
@@ -362,13 +377,16 @@ void SetPageCountWarning(const char* envvar) {
 /***********************************************************************
 * environ_init
 * Read environment variables that affect the runtime.
+* 读取影响运行时的环境变量。
 * Also print environment variable help, if requested.
+* 如果需要可以打印环境变量提供帮助
 **********************************************************************/
 void environ_init(void) 
 {
     if (issetugid()) {
         // All environment variables are silently ignored when setuid or setgid
         // This includes OBJC_HELP and OBJC_PRINT_OPTIONS themselves.
+        //当 setuid 或 setgid 这包括 OBJC_HELP 和 OBJC_PRINT_OPTIONS 本身时，所有环境变量都会被静默忽略。
         return;
     } 
 
@@ -379,13 +397,20 @@ void environ_init(void)
 //    if (!dyld_program_sdk_at_least(dyld_fall_2020_os_versions))
 //        DisableAutoreleaseCoalescingLRU = true;
 
+    // 打印帮助
     bool PrintHelp = false;
+    // 打印选项
     bool PrintOptions = false;
+    // 是否设置了 malloc 调试
     bool maybeMallocDebugging = false;
 
     // Scan environ[] directly instead of calling getenv() a lot.
     // This optimizes the case where none are set.
+    // 直接读取 environ[] 来获取环境变量,而不是大量的调用 getenv(), 提高性能
+    // 在这里优化了没有设置的情况
     for (char **p = *_NSGetEnviron(); *p != nil; p++) {
+        // 是否设置了 malloc调试
+        // 1. malloc 2. dyld 3 NSZombiesEnabled 僵尸对象勾选了
         if (0 == strncmp(*p, "Malloc", 6)  ||  0 == strncmp(*p, "DYLD", 4)  ||  
             0 == strncmp(*p, "NSZombiesEnabled", 16))
         {
@@ -393,16 +418,17 @@ void environ_init(void)
         }
 
         if (0 != strncmp(*p, "OBJC_", 5)) continue;
-        
+        // 设置了 OBJC_HELP=
         if (0 == strncmp(*p, "OBJC_HELP=", 10)) {
             PrintHelp = true;
             continue;
         }
+        // 设置了 OBJC_PRINT_OPTIONS=
         if (0 == strncmp(*p, "OBJC_PRINT_OPTIONS=", 19)) {
             PrintOptions = true;
             continue;
         }
-        
+        // 是否设置了 page 数量警告
         if (0 == strncmp(*p, "OBJC_DEBUG_POOL_DEPTH=", 22)) {
             SetPageCountWarning(*p + 22);
             continue;
@@ -426,10 +452,22 @@ void environ_init(void)
     // Special case: enable some autorelease pool debugging
     // when some malloc debugging is enabled 
     // and OBJC_DEBUG_POOL_ALLOCATION is not set to something other than NO.
+    // 特殊情况: 当启用了一些 malloc 调试并且 OBJC_DEBUG_POOL_ALLOCATION 未设置为 NO 意外的其他值时,
+    // 就启用一些 autorelease pool 调试
     if (maybeMallocDebugging) {
+        // 通过 getenv 读取设置 DYLD_INSERT_LIBRARIES 对应的值
         const char *insert = getenv("DYLD_INSERT_LIBRARIES");
+        // 通过 getenv 获取是否设置了 NSZombiesEnabled
         const char *zombie = getenv("NSZombiesEnabled");
+        // 通过 getenv 读取设置 OBJC_DEBUG_POOL_ALLOCATION 对应的值
         const char *pooldebug = getenv("OBJC_DEBUG_POOL_ALLOCATION");
+        // 首先判断下面 4 个条件是否满足一个:
+        // 1. 是否勾选了 MallocStackLogging 打印
+        // 2. 是否勾选了 MallocStackLoggingNoCompact
+        // 3. 是否勾选了 NSZombiesEnabled ,或者环境变量中设置的 NSZombiesEnabled内容是否是 Y/y
+        // 4. 是否允许插入库
+        
+        // 上述条件满足一个,并且允许 autorelease pool 调试,就把全局允许自动释放器调试的参数设置成 true
         if ((getenv("MallocStackLogging")
              || getenv("MallocStackLoggingNoCompact")
              || (zombie && (*zombie == 'Y' || *zombie == 'y'))
@@ -446,7 +484,9 @@ void environ_init(void)
 //    }
 
     // Print OBJC_HELP and OBJC_PRINT_OPTIONS output.
+    // 打印 OBJC_HELP 和 OBJC_PRINT_OPTIONS
     if (PrintHelp  ||  PrintOptions) {
+        // 打印 OBJC_HELP
         if (PrintHelp) {
             _objc_inform("Objective-C runtime debugging. Set variable=YES to enable.");
             _objc_inform("OBJC_HELP: describe available environment variables");
@@ -455,10 +495,11 @@ void environ_init(void)
             }
             _objc_inform("OBJC_PRINT_OPTIONS: list which options are set");
         }
+        // 打印 OBJC_PRINT_OPTIONS
         if (PrintOptions) {
             _objc_inform("OBJC_PRINT_OPTIONS is set");
         }
-
+        // 打印 Settings 列表所有的选项
         for (size_t i = 0; i < sizeof(Settings)/sizeof(Settings[0]); i++) {
             const option_t *opt = &Settings[i];            
             if (PrintHelp) _objc_inform("%s: %s", opt->env, opt->help);
@@ -550,8 +591,10 @@ void _objc_pthread_destroyspecific(void *arg)
 void tls_init(void)
 {
 #if SUPPORT_DIRECT_THREAD_KEYS
+    // 初始化线程并读取线程 key
     pthread_key_init_np(TLS_DIRECT_KEY, &_objc_pthread_destroyspecific);
 #else
+    // 设置线程 key
     _objc_pthread_key = tls_create(&_objc_pthread_destroyspecific);
 #endif
 }

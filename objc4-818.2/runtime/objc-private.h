@@ -404,25 +404,31 @@ typedef struct header_info {
 private:
     // Note, this is no longer a pointer, but instead an offset to a pointer
     // from this location.
+    // 注意: 这里不在是指针, 而是从该位置指向指针的偏移量.
     intptr_t mhdr_offset;
 
     // Note, this is no longer a pointer, but instead an offset to a pointer
-    // from this location.
+    // from this location.]
+    // 注意: 这里不在是指针, 而是从该位置指向指针的偏移量.
     intptr_t info_offset;
 
     // Offset from this location to the non-lazy class list
+    // 从这个位置到non-lazy类列表的偏移量
     intptr_t nlclslist_offset;
     uintptr_t nlclslist_count;
 
     // Offset from this location to the non-lazy category list
+    // 从这个位置到non-lazy分类列表的偏移量
     intptr_t nlcatlist_offset;
     uintptr_t nlcatlist_count;
 
     // Offset from this location to the category list
+    // 从这个位置到分类列表的偏移量
     intptr_t catlist_offset;
     uintptr_t catlist_count;
 
     // Offset from this location to the category list 2
+    // 从此位置到分类列表的偏移量 2
     intptr_t catlist2_offset;
     uintptr_t catlist2_count;
 
@@ -540,6 +546,7 @@ public:
 private:
     // Images in the shared cache will have an empty array here while those
     // allocated at run time will allocate a single entry.
+    // 共享缓存中的图像在此处将有一个空数组，而在运行时分配的图像将分配一个条目。
     header_info_rw rw_data[];
 } header_info;
 
@@ -554,6 +561,7 @@ extern bool _hasObjcContents(const header_info *hi);
 
 
 // Mach-O segment and section names are 16 bytes and may be un-terminated.
+// Mach-O 段和节名称为 16 个字节，可以不终止。 
 
 static inline bool segnameEquals(const char *lhs, const char *rhs) {
     return 0 == strncmp(lhs, rhs, 16);

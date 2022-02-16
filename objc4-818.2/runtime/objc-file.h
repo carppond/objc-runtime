@@ -76,33 +76,53 @@ extern category_t * const *_getObjc2NonlazyCategoryList(const headerType *mhdr, 
 extern UnsignedInitializer *getLibobjcInitializers(const headerType *mhdr, size_t *count);
 extern uint32_t *getLibobjcInitializerOffsets(const headerType *hi, size_t *count);
 
+/*!
+ *  foreach_data_segment
+ *
+ *  @param mhdr mach-o header
+ *  @param code 回调
+ */
 static inline void
 foreach_data_segment(const headerType *mhdr,
                      std::function<void(const segmentType *, intptr_t slide)> code)
 {
     intptr_t slide = 0;
 
-    // compute VM slide
+    // compute VM slide 计算虚拟 VM
+    // 获取 segment_command_64 的信息
     const segmentType *seg = (const segmentType *) (mhdr + 1);
+    // 循环 load commands
     for (unsigned long i = 0; i < mhdr->ncmds; i++) {
+        // LC_SEGMENT_64架构
+        // LC_SEGEENT_64(__TEXT)  存在
         if (seg->cmd == SEGMENT_CMD  &&
             segnameEquals(seg->segname, "__TEXT"))
         {
+            // seg->vmaddr: mhdr对应段的内存地址
+            // slide = mhdr - 对应段的内存地址
+            // slide 偏移量
             slide = (char *)mhdr - (char *)seg->vmaddr;
             break;
         }
+        // 获取下一个load command
         seg = (const segmentType *)((char *)seg + seg->cmdsize);
     }
 
     // enumerate __DATA* and __AUTH* segments
+    // 获取 segment_command_64 的信息
     seg = (const segmentType *) (mhdr + 1);
+    // 循环 load commands
     for (unsigned long i = 0; i < mhdr->ncmds; i++) {
+        // LC_SEGMENT_64架构
+        // LC_SEGEENT_64(__DATA) 或者 LC_SEGEENT_64(__AUTH)
         if (seg->cmd == SEGMENT_CMD  &&
             (segnameStartsWith(seg->segname, "__DATA") ||
              segnameStartsWith(seg->segname, "__AUTH")))
         {
+            // 会爱到 seg 和 偏移量
             code(seg, slide);
         }
+        // 获取下一个load command
         seg = (const segmentType *)((char *)seg + seg->cmdsize);
     }
 }

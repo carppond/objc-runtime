@@ -33,6 +33,7 @@ static SEL search_builtins(const char *key);
 /***********************************************************************
 * sel_init
 * Initialize selector tables and register selectors used internally.
+* 初始化 SEL 表和注册了 C++的析构函数和构造函数
 **********************************************************************/
 void sel_init(size_t selrefCount)
 {
@@ -41,14 +42,17 @@ void sel_init(size_t selrefCount)
         _objc_inform("PREOPTIMIZATION: using dyld selector opt");
     }
 #endif
-
+  // 初始化sel 表,根据 sel 数量
   namedSelectors.init((unsigned)selrefCount);
 
     // Register selectors used by libobjc
-
+    // 注册被 libobjc 使用的 sels
+    
+    // 加锁
     mutex_locker_t lock(selLock);
-
+    // 注册c++构造函数
     SEL_cxx_construct = sel_registerNameNoLock(".cxx_construct", NO);
+    // 注册c++析构函数
     SEL_cxx_destruct = sel_registerNameNoLock(".cxx_destruct", NO);
 }
 

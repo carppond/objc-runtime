@@ -132,36 +132,47 @@ extern const objc_opt_t _objc_opt_data;  // in __TEXT, __objc_opt_ro
 
 namespace objc_opt {
 struct objc_headeropt_ro_t {
+    // 数量
     uint32_t count;
+    // 容量大小
     uint32_t entsize;
+    // mh ,按 mhdr 地址排序
     header_info headers[0];  // sorted by mhdr address
 
+    // 根据索引返回指定元素的的引用，这 i 可以等于 count
     header_info& getOrEnd(uint32_t i) const {
         ASSERT(i <= count);
         return *(header_info *)((uint8_t *)&headers + (i * entsize));
     }
-
+    // 在索引返回内返回 Element 引用
     header_info& get(uint32_t i) const {
         ASSERT(i < count);
         return *(header_info *)((uint8_t *)&headers + (i * entsize));
     }
-
+    // 根据传入的 hi 获取对应的索引
     uint32_t index(const header_info* hi) const {
         const header_info* begin = &get(0);
         const header_info* end = &getOrEnd(count);
         ASSERT(hi >= begin && hi < end);
         return (uint32_t)(((uintptr_t)hi - (uintptr_t)begin) / entsize);
     }
-
+    // 通过传入 mhdr 获取 header_info
     header_info *get(const headerType *mhdr)
     {
         int32_t start = 0;
         int32_t end = count;
+        // 如果 headers 已经有 mach-o 的信息数据
+        // 好像是二分查找
         while (start <= end) {
+            // 获取中间值
             int32_t i = (start+end)/2;
+            // 获取对应的 header_info
             header_info &hi = get(i);
+            // 如果当前header_info的 mhdr 和 传入的 mhdr 相同,则找到
             if (mhdr == hi.mhdr()) return &hi;
+            // 说明 i 值大了,缩小 i 值,继续查找
             else if (mhdr < hi.mhdr()) end = i-1;
+            // 说明 i 值小了,增大,继续查找
             else start = i+1;
         }
 
@@ -188,6 +199,7 @@ struct objc_headeropt_rw_t {
 
 /***********************************************************************
 * Return YES if we have a valid optimized shared cache.
+* 如果我们有一个有效的优化共享缓存，则返回 YES。
 **********************************************************************/
 bool isPreoptimized(void) 
 {
@@ -223,6 +235,7 @@ bool header_info::isPreoptimized() const
 bool header_info::hasPreoptimizedSelectors() const
 {
     // preoptimization disabled for some reason
+    // 由于某种原因禁用了预优化
     if (!preoptimized) return NO;
 
     return info()->optimizedByDyld() || info()->optimizedByDyldClosure();
@@ -478,12 +491,14 @@ Class* copyPreoptimizedClasses(const char *name, int *outCount)
 
 header_info *preoptimizedHinfoForHeader(const headerType *mhdr)
 {
+
 #if !__OBJC2__
     // fixme old ABI shared cache doesn't prepare these properly
     return nil;
 #endif
-
+    // 从 共享缓存中获取 hinfos 信息
     objc_headeropt_ro_t *hinfos = opt ? opt->headeropt_ro() : nil;
+    // 通过当前 mach-o header 获取对应的 header_info
     if (hinfos) return hinfos->get(mhdr);
     else return nil;
 }
@@ -507,52 +522,63 @@ header_info_rw *getPreoptimizedHeaderRW(const struct header_info *const hdr)
     return &hinfoRW->headers[index];
 }
 
-
+// 预先初始化
 void preopt_init(void)
 {
     // Get the memory region occupied by the shared cache.
+    // 获取共享缓存占用的内存区域。
     size_t length;
+    // 返回进程中dyld缓存的起始地址，并将length设置为缓存的大小。
+    // 如果当前进程没有使用共享缓存,测返回 NULL
+    // iOS 11.0+
     const uintptr_t start = (uintptr_t)_dyld_get_shared_cache_range(&length);
-
+    // 没有使用共享缓存
     if (start) {
+        // 设置共享缓存的起始地址和区间
         objc::dataSegmentsRanges.setSharedCacheRange(start, start + length);
     }
     
     // `opt` not set at compile time in order to detect too-early usage
+    // `opt` 未在编译时设置以检测过早使用
+    
     const char *failure = nil;
     opt = &_objc_opt_data;
-
+    // 是否禁用 dyld 共享缓存提供的预优化
     if (DisablePreopt) {
         // OBJC_DISABLE_PREOPTIMIZATION is set
         // If opt->version != VERSION then you continue at your own risk.
         failure = "(by OBJC_DISABLE_PREOPTIMIZATION)";
     } 
-    else if (opt->version != objc_opt::VERSION) {
+    else if (opt->version != objc_opt::VERSION) { // 版本不支持优化
         // This shouldn't happen. You probably forgot to edit objc-sel-table.s.
         // If dyld really did write the wrong optimization version, 
         // then we must halt because we don't know what bits dyld twiddled.
         _objc_fatal("bad objc preopt version (want %d, got %d)", 
                     objc_opt::VERSION, opt->version);
     }
-    else if (!opt->selopt()  ||  !opt->headeropt_ro()) {
+    else if (!opt->selopt()  ||  !opt->headeropt_ro()) { // 某一个 table 丢失
         // One of the tables is missing. 
         failure = "(dyld shared cache is absent or out of date)";
     }
     
     if (failure) {
         // All preoptimized selector references are invalid.
+        // 所有预优化的选择器引用均无效。
         preoptimized = NO;
         opt = nil;
+        // 禁用共享缓存优化
         disableSharedCacheOptimizations();
-
+        // 是否支持打印预优化信息
         if (PrintPreopt) {
             _objc_inform("PREOPTIMIZATION: is DISABLED %s", failure);
         }
     }
     else {
         // Valid optimization data written by dyld shared cache
+        // dyld共享缓存写入的有效优化数据
         preoptimized = YES;
 
+        // 是否支持打印预优化信息
         if (PrintPreopt) {
             _objc_inform("PREOPTIMIZATION: is ENABLED "
                          "(version %d)", opt->version);

@@ -463,6 +463,9 @@ argumentModeForBlock(id block)
 /// Initialize the trampoline machinery. Normally this does nothing, as
 /// everything is initialized lazily, but for certain processes we eagerly load
 /// the trampolines dylib.
+/// 启动回调机制.通常这不会做什么,因为所有的初始化都是 lazily initialized.
+/// 但对于某些进程,会加载 trampolines dylib
+/// 初始化
 void
 _imp_implementationWithBlock_init(void)
 {
@@ -474,12 +477,17 @@ _imp_implementationWithBlock_init(void)
     // imp_implementationWithBlock (as AppKit has started doing) then we'll
     // crash trying to load it. Loading it here sets it up before the sandbox
     // profile is enabled and blocks it.
-    //
+    // 在某些进程中急切地加载 libobjc-trampolines.dylib。
+    // 一些程序（最显着的是旧版本的嵌入式 Chromium 使用的 QtWebEngineProcess）
+    // 启用了高度限制性的沙箱配置文件，该配置文件会阻止对该 dylib 的访问。
+    // 如果有任何调用 imp_implementationWithBlock （正如 AppKit 已经开始做的那样），
+    // 那么我们将在尝试加载它时崩溃。 在此处加载它会在启用沙盒配置文件之前设置它并阻止它。
     // This fixes EA Origin (rdar://problem/50813789)
     // and Steam (rdar://problem/55286131)
     if (__progname &&
         (strcmp(__progname, "QtWebEngineProcess") == 0 ||
          strcmp(__progname, "Steam Helper") == 0)) {
+        //
         Trampolines.Initialize();
     }
 #endif

@@ -1427,7 +1427,9 @@ static void call_alt_handlers(struct _Unwind_Context *ctx)
 /***********************************************************************
 * exception_init
 * Initialize libobjc's exception handling system.
+* 初始化 libobjc 的异常处理系统
 * Called by map_images().
+* 由 map_images() 调用
 **********************************************************************/
 void exception_init(void)
 {

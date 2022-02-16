@@ -200,6 +200,7 @@ const uintptr_t objc_debug_swift_stable_abi_bit = FAST_IS_SWIFT_STABLE;
 * allocatedClasses
 * A table of all classes (and metaclasses) which have been allocated
 * with objc_allocateClassPair.
+* 已使用 objc_allocateClassPair 加载的所有的类和元类的表
 **********************************************************************/
 namespace objc {
 static ExplicitInitDenseSet<Class> allocatedClasses;
@@ -221,6 +222,7 @@ static bool didInitialAttachCategories = false;
 /***********************************************************************
 * didCallDyldNotifyRegister
 * Whether the call to _dyld_objc_notify_register has completed.
+* 对 _dyld_objc_notify_register 的调用是否已完成。
 **********************************************************************/
 bool didCallDyldNotifyRegister = false;
 
@@ -1133,6 +1135,7 @@ struct CoreScanner : scanner::Mixin<CoreScanner, Core, PrintCustomCore> {
     }
 };
 
+// class nocopy_t 构造函数和析构函数使用编译器默认生成的，删除复制构造函数和赋值函数
 class category_list : nocopy_t {
     // 共同体/联合体
     union {
@@ -1808,8 +1811,10 @@ static char *copySwiftV1MangledName(const char *string, bool isProtocol = false)
 
 // This is a misnomer: gdb_objc_realized_classes is actually a list of 
 // named classes not in the dyld shared cache, whether realized or not.
+// 这是用词不当：gdb_objc_realized_classes 实际上是一个不在 dyld 共享缓存中的命名类的列表，无论是否已实现。
 // This list excludes lazily named classes, which have to be looked up
 // using a getClass hook.
+// 此列表不包括延迟命名的类，这些类必须使用 getClass hook进行查找。
 NXMapTable *gdb_objc_realized_classes;  // exported for debuggers in objc-gdb.h
 uintptr_t objc_debug_realized_class_generation_count;
 
@@ -3197,15 +3202,22 @@ void _objc_flush_caches(Class cls)
 /***********************************************************************
 * map_images
 * Process the given images which are being mapped in by dyld.
+* 处理由 dyld 映射的给定头像
 * Calls ABI-agnostic code after taking ABI-specific locks.
 *
 * Locking: write-locks runtimeLock
+*
+* count: 文件数
+* paths[]: 文件的路径
+* mhdrs[]: mh 文件的 header
+* 当前方法只会调用一次
 **********************************************************************/
 void
 map_images(unsigned count, const char * const paths[],
            const struct mach_header * const mhdrs[])
-{
+{   // 加锁
     mutex_locker_t lock(runtimeLock);
+    // 调用 map_images_nolock 完成加载
     return map_images_nolock(count, paths, mhdrs);
 }
 
@@ -3290,12 +3302,21 @@ static void loadAllCategories() {
 /***********************************************************************
 * load_images
 * Process +load in the given images which are being mapped in by dyld.
-*
+* 处理给定 image 的 +load 函数
 * Locking: write-locks runtimeLock and loadMethodLock
 **********************************************************************/
 extern bool hasLoadMethods(const headerType *mhdr);
 extern void prepare_load_methods(const headerType *mhdr);
 
+/**********************************************************************
+ *  load_images
+ *
+ *  @param path 文件的路径
+ *  @param mh mh 的 header
+ *
+ *  当前方法只会调用多次
+ *  map_images方法只会调用一次,load_images 会调用多次, map_images 会把文件数及文件的 path/mh 地址等信息给 runtime,load_images 负责每个文件加载.
+ **********************************************************************/
 void
 load_images(const char *path __unused, const struct mach_header *mh)
 {
@@ -3323,8 +3344,11 @@ load_images(const char *path __unused, const struct mach_header *mh)
 /***********************************************************************
 * unmap_image
 * Process the given image which is about to be unmapped by dyld.
-*
+* 处理即将被接触映射的 image
 * Locking: write-locks runtimeLock and loadMethodLock
+*
+* path: 文件的路径
+* mh: mh 的 header
 **********************************************************************/
 void 
 unmap_image(const char *path __unused, const struct mach_header *mh)
@@ -3338,12 +3362,14 @@ unmap_image(const char *path __unused, const struct mach_header *mh)
 /***********************************************************************
 * mustReadClasses
 * Preflight check in advance of readClass() from an image.
+* 在 readClass() 之前从图像中进行预检检查。
 **********************************************************************/
 bool mustReadClasses(header_info *hi, bool hasDyldRoots)
 {
     const char *reason;
 
     // If the image is not preoptimized then we must read classes.
+    // 如果图像没有预先优化，那么我们必须 read classes.
     if (!hi->hasPreoptimizedClasses()) {
         reason = nil; // Don't log this one because it is noisy.
         goto readthem;
@@ -3354,16 +3380,18 @@ bool mustReadClasses(header_info *hi, bool hasDyldRoots)
     reason = "the image is for iOS simulator";
     goto readthem;
 #endif
-
+    // 共享缓存中没有 MH_BUNDLE
     ASSERT(!hi->isBundle());  // no MH_BUNDLE in shared cache
 
     // If the image may have missing weak superclasses then we must read classes
+    // 如果图像可能缺少弱超类，那么我们必须读取类
     if (!noMissingWeakSuperclasses() || hasDyldRoots) {
         reason = "the image may contain classes with missing weak superclasses";
         goto readthem;
     }
 
     // If there are unresolved future classes then we must read classes.
+    // 如果有未解析的未来类，那么我们必须 read classes.
     if (haveFutureNamedClasses()) {
         reason = "there are unresolved future classes pending";
         goto readthem;
@@ -3579,23 +3607,36 @@ readProtocol(protocol_t *newproto, Class protocol_class,
 * _read_images
 * Perform initial processing of the headers in the linked 
 * list beginning with headerList. 
+* 对以 headerList 开头的链表中的头进行初始化处理。
 *
 * Called by: map_images_nolock
+* 调用者：map_images_nolock
 *
 * Locking: runtimeLock acquired by map_images
+*
+* hList: 存放 header_info 的数组
+* totalClasses: 类的总数量
+* unoptimizedTotalClasses: 未优化的类的数量
 **********************************************************************/
 void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int unoptimizedTotalClasses)
 {
+    //
     header_info *hi;
+    // mh 对应的 index
     uint32_t hIndex;
     size_t count;
     size_t i;
+    // 未来类的指针数组
     Class *resolvedFutureClasses = nil;
+    // 未来类的数量
     size_t resolvedFutureClassCount = 0;
+    // 静态变量
     static bool doneOnce;
+    // 发起时间
     bool launchTime = NO;
+    // 时间记录
     TimeLogger ts(PrintImageTimes);
-
+    // 加锁
     runtimeLock.assertLocked();
 
 #define EACH_HEADER \
@@ -3609,7 +3650,9 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
 
 #if SUPPORT_NONPOINTER_ISA
         // Disable non-pointer isa under some conditions.
+        // 在某些情况下禁用非指针 isa。
 
+// apple watch 设备
 # if SUPPORT_INDEXED_ISA
         // Disable nonpointer isa if any image contains old Swift code
         for (EACH_HEADER) {
@@ -3626,7 +3669,7 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
             }
         }
 # endif
-
+// mac 设备
 # if TARGET_OS_OSX
         // Disable non-pointer isa if the app is too old
         // (linked before OS X 10.11)
@@ -3655,11 +3698,11 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
 # endif
 
 #endif
-
+        // 禁用 NSNumber 等的标记指针优化。
         if (DisableTaggedPointers) {
             disableTaggedPointers();
         }
-        
+        // 初始化 TaggedPointer 混淆参数
         initializeTaggedPointerObfuscator();
 
         if (PrintConnecting) {
@@ -3668,9 +3711,13 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
 
         // namedClasses
         // Preoptimized classes don't go in this table.
+        // 预优化的类不在这个列表中
         // 4/3 is NXMapTable's load factor
+        // 4/3 是 NXMapTable 的加载因子
+        // 获取类的数量
         int namedClassesSize = 
             (isPreoptimized() ? unoptimizedTotalClasses : totalClasses) * 4 / 3;
+        // 初始化存放类的 map
         gdb_objc_realized_classes =
             NXCreateMapTable(NXStrValueMapPrototype, namedClassesSize);
 
@@ -3678,18 +3725,28 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
     }
 
     // Fix up @selector references
+    // 修复 sel 应用
+    // 静态的未修复的 sels
     static size_t UnfixedSelectors;
-    {
+    {   // 加锁
         mutex_locker_t lock(selLock);
+        // 循环 hList
         for (EACH_HEADER) {
+            // 如果当前的 header_info 中的 sels 已经优化,则进行下一次循环
             if (hi->hasPreoptimizedSelectors()) continue;
-
+            // 当前 mh 是否以插件的形式加载
             bool isBundle = hi->isBundle();
+            // 从 mhdr 的Section(__DATA,__objc_selrefs)中获取 SEL 的信息
             SEL *sels = _getObjc2SelectorRefs(hi, &count);
+            // 更新未修复的 sel 的数量
             UnfixedSelectors += count;
+            // 循环 sel
             for (i = 0; i < count; i++) {
+                // 获取sel 名称
                 const char *name = sel_cname(sels[i]);
+                // 根据 name 注册 SEL
                 SEL sel = sel_registerNameNoLock(name, isBundle);
+                // 调整 sel 对应的位置
                 if (sels[i] != sel) {
                     sels[i] = sel;
                 }
@@ -3700,21 +3757,30 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
     ts.log("IMAGE TIMES: fix up selector references");
 
     // Discover classes. Fix up unresolved future classes. Mark bundle classes.
+    // 发现类。修复未解析的未来类。标记捆绑类
     bool hasDyldRoots = dyld_shared_cache_some_image_overridden();
-
+    // 一般不会调用
     for (EACH_HEADER) {
+        // 1. 如果image 没有预先优化
+        // 2. 模拟器运行
+        // 3. image可能缺少 weak superclass
+        // 4. 有位置的类
         if (! mustReadClasses(hi, hasDyldRoots)) {
             // Image is sufficiently optimized that we need not call readClass()
+            // 图像已充分优化，我们无需调用 readClass()
             continue;
         }
-
+        // 从 mhdr 的Section(__DATA,__objc_classlist)中获取 classlist
         classref_t const *classlist = _getObjc2ClassList(hi, &count);
-
+        // 当前 mh 是否以插件的形式加载
         bool headerIsBundle = hi->isBundle();
+        //当前 header_info 中的 Classes 是否已经优化
         bool headerIsPreoptimized = hi->hasPreoptimizedClasses();
-
+        // 循环 classlist
         for (i = 0; i < count; i++) {
+            // 获取 i 对应的类
             Class cls = (Class)classlist[i];
+            //
             Class newCls = readClass(cls, headerIsBundle, headerIsPreoptimized);
 
             if (newCls != cls  &&  newCls) {
@@ -8644,7 +8710,9 @@ Class class_setSuperclass(Class cls, Class newSuper)
 
 void runtime_init(void)
 {
+    // 未附加的分类表初始化
     objc::unattachedCategories.init(32);
+    // 已加载的类表初始化,包含所有的'allocated' 的类和元类
     objc::allocatedClasses.init();
 }
 

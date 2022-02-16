@@ -1053,14 +1053,15 @@ static bool shouldUseRestartableRanges = true;
 
 void cache_t::init()
 {
+    // arm64
 #if HAVE_TASK_RESTARTABLE_RANGES
     mach_msg_type_number_t count = 0;
     kern_return_t kr;
-
+    // 获取重新启动表的位置
     while (objc_restartableRanges[count].location) {
         count++;
     }
-
+    // 重新启动表的注册
     kr = task_restartable_ranges_register(mach_task_self(),
                                           objc_restartableRanges, count);
     if (kr == KERN_SUCCESS) return;

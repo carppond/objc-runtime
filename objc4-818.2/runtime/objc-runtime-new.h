@@ -726,7 +726,7 @@ struct entsize_list_tt {
             // 指针偏移
             element = (Element*)((uint8_t *)element - delta*entsize);
             // 更新 index
-            index -= (int32_t)delta;]
+            index -= (int32_t)delta;
             // 返回 *this
             return *this;
         }

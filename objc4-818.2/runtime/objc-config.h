@@ -129,12 +129,15 @@
 #endif
 
 // Define SUPPORT_FIXUP=1 to repair calls sites for fixup dispatch.
+// 定义 SUPPORT_FIXUP=1 来修复呼叫站点以进行修复调度。
 // Fixup messaging itself is no longer supported.
+// 不再支持修复消息本身。
 // Be sure to edit objc-abi.h as well (objc_msgSend*_fixup)
+// 一定要编辑 objc-abi.h (objc_msgSend*_fixup)
 #if !(defined(__x86_64__) && (TARGET_OS_OSX || TARGET_OS_SIMULATOR))
 #   define SUPPORT_FIXUP 0
 #else
-#   define SUPPORT_FIXUP 1
+#   define SUPPORT_FIXUP 1 // arm64
 #endif
 
 // Define SUPPORT_ZEROCOST_EXCEPTIONS to use "zero-cost" exceptions for OBJC2.

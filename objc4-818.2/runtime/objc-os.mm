@@ -1068,24 +1068,33 @@ void _objc_init(void)
 
 /***********************************************************************
 * _headerForAddress.
+* 从 全局的 header_info 链表中,获取 addr 对应的 header_info
 * addr can be a class or a category
+* addr 是类或者分类
 **********************************************************************/
 static const header_info *_headerForAddress(void *addr)
 {
 #if __OBJC2__
+    // 段 对应的名称
     const char *segnames[] = { "__DATA", "__DATA_CONST", "__DATA_DIRTY" };
 #else
     const char *segnames[] = { "__OBJC" };
 #endif
     header_info *hi;
-
+    
+    // 循环 FirstHeader 和 LastHeader 链表,获取 addr 对应点hi
     for (hi = FirstHeader; hi != NULL; hi = hi->getNext()) {
+        // 段名
         for (size_t i = 0; i < sizeof(segnames)/sizeof(segnames[0]); i++) {
-            unsigned long seg_size;            
+            unsigned long seg_size;
+            // 获取段信息
             uint8_t *seg = getsegmentdata(hi->mhdr(), segnames[i], &seg_size);
+            // 如果不存在继续循环
             if (!seg) continue;
             
             // Is the class in this header?
+            // 这个header中的类是什么？
+            // 如果类在  hi 对应 seg 所在的区间范围内,就返回 hi
             if ((uint8_t *)addr >= seg  &&  (uint8_t *)addr < seg + seg_size) {
                 return hi;
             }
@@ -1093,6 +1102,7 @@ static const header_info *_headerForAddress(void *addr)
     }
 
     // Not found
+    // 没找到
     return 0;
 }
 
@@ -1100,7 +1110,9 @@ static const header_info *_headerForAddress(void *addr)
 /***********************************************************************
 * _headerForClass
 * Return the image header containing this class, or NULL.
+* 返回包含该类的 headr_info,或者 NULL
 * Returns NULL on runtime-constructed classes, and the NSCF classes.
+* 在运行时构造的类和 NSCF 类返回 NULL
 **********************************************************************/
 const header_info *_headerForClass(Class cls)
 {

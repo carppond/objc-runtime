@@ -879,6 +879,7 @@ _class_createInstancesFromZone(Class cls, size_t extraBytes, void *zone,
 
 /***********************************************************************
 * inform_duplicate. Complain about duplicate class implementations.
+* 通知重复。 抱怨重复的类实现。
 **********************************************************************/
 void 
 inform_duplicate(const char *name, Class oldCls, Class newCls)
@@ -887,15 +888,20 @@ inform_duplicate(const char *name, Class oldCls, Class newCls)
     (DebugDuplicateClasses ? _objc_fatal : _objc_inform)
         ("Class %s is implemented in two different images.", name);
 #else
+    // 从 全局的 header_info 链表中,获取 oldCls 对应的 header_info
     const header_info *oldHeader = _headerForClass(oldCls);
+    // 从 全局的 header_info 链表中,获取 newCls 对应的 header_info
     const header_info *newHeader = _headerForClass(newCls);
+    // 获取 header 对应的 name
     const char *oldName = oldHeader ? oldHeader->fname() : "??";
     const char *newName = newHeader ? newHeader->fname() : "??";
     const objc_duplicate_class **_dupi = NULL;
 
+    // 循环从 DATA __objc_dupclass 中获取重复的类名
     LINKER_SET_FOREACH(_dupi, const objc_duplicate_class **, "__objc_dupclass") {
+        //
         const objc_duplicate_class *dupi = *_dupi;
-
+        // 如果存在于 name 重复的类名就return
         if (strcmp(dupi->name, name) == 0) {
             return;
         }

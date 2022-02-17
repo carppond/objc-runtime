@@ -168,8 +168,11 @@ static void make_perfect(const string_map& strings, perfect_hash& phash);
 
 
 // Precomputed perfect hash table of strings.
+// 预先计算的完美字符串哈希表。
 // Base class for precomputed selector table and class table.
+// 预计算选择器表和类表的基类。
 // Edit objc-sel-table.s if you change this structure.
+// 如果你改变这个结构，编辑 objc-sel-table.s。
 struct __attribute__((packed)) objc_stringhash_t {
     uint32_t capacity;
     uint32_t occupied;
@@ -373,15 +376,25 @@ struct objc_selopt_t : objc_stringhash_t {
 };
 
 // Precomputed class list.
+// 预计算的类列表。
 // Edit objc-sel-table.s if you change these structures.
+// 如果您更改这些结构，请编辑 objc-sel-table.s。
 
+// 类的信息
 struct objc_classheader_t {
+    // 类偏移量
     objc_stringhash_offset_t clsOffset;
+    // header_info 的偏移量
     objc_stringhash_offset_t hiOffset;
 
     // For duplicate class names:
     // clsOffset = count<<1 | 1
     // duplicated classes are duplicateOffsets[hiOffset..hiOffset+count-1]
+    // 对于重复的类名
+    // clsOffset = count<<1 | 1
+    // 重复的类是
+    // 是否重复 duplicateOffsets[hiOffset..hiOffset+count-1]
+    // 类名是否重复
     bool isDuplicate() const { return clsOffset & 1; }
     uint32_t duplicateCount() const { return clsOffset >> 1; }
     uint32_t duplicateIndex() const { return hiOffset; }
@@ -420,52 +433,63 @@ struct objc_clsopt_t : objc_stringhash_t {
         }
     }
 
-    // 0/NULL/NULL: not found
-    // 1/ptr/ptr: found exactly one
-    // n/NULL/NULL:  found N - use getClassesAndHeaders() instead
+    // 0/NULL/NULL: not found 没找到
+    // 1/ptr/ptr: found exactly one 找到一个
+    // n/NULL/NULL:  found N - use getClassesAndHeaders() instead 找到 N,使用 getClassesAndHeaders 代替
     uint32_t getClassHeaderAndIndex(const char *key, void*& cls, void*& hi, uint32_t& index) const
-    {
+    {   // 获取哈希值
         uint32_t h = getIndex(key);
+        // 哈希值获取失败
         if (h == INDEX_NOT_FOUND) { 
             cls = NULL;
             hi = NULL;
             index = 0;
             return 0;
         }
-
+        // 赋值
         index = h;
-
+        // 获取类偏移信息
         const objc_classheader_t& clshi = classOffsets()[h];
+        // 如果类名不重复
         if (! clshi.isDuplicate()) {
             // class appears in exactly one header
+            // 类只出现在一个 header 中
+            // 从 opt 中根据类的偏移量找到对应的类
             cls = (void *)((const char *)this + clshi.clsOffset);
+            // 从 opt 中根据 hi 的偏移值找到对应的 hi
             hi  = (void *)((const char *)this + clshi.hiOffset);
             return 1;
         } 
         else {
             // class appears in more than one header - use getClassesAndHeaders
+            // 类出现在多个 header 中,使用 getClassesAndHeaders
             cls = NULL;
             hi = NULL;
+            // 找到多个通 name 的 header
             return clshi.duplicateCount();
         }
     }
-
+    // 根据 key,循环检测新城
     void getClassesAndHeaders(const char *key, void **cls, void **hi) const 
     {
         uint32_t h = getIndex(key);
         if (h == INDEX_NOT_FOUND) return;
-
+        // 获取类偏移信息
         const objc_classheader_t& clshi = classOffsets()[h];
+        // 如果类名没有重复出现
         if (! clshi.isDuplicate()) {
             // class appears in exactly one header
             cls[0] = (void *)((const char *)this + clshi.clsOffset);
             hi[0]  = (void *)((const char *)this + clshi.hiOffset);
         } 
-        else {
+        else { // 类名重复出现
             // class appears in more than one header
+            // 类出现在的数量
             uint32_t count = clshi.duplicateCount();
+            // 获取类名对应 Header 数量
             const objc_classheader_t *list = 
                 &duplicateOffsets()[clshi.duplicateIndex()];
+            // 循环 header,添加信息到 cls 和 hi 数组中
             for (uint32_t i = 0; i < count; i++) {
                 cls[i] = (void *)((const char *)this + list[i].clsOffset);
                 hi[i]  = (void *)((const char *)this + list[i].hiOffset);
@@ -473,9 +497,9 @@ struct objc_clsopt_t : objc_stringhash_t {
         }
     }
 
-    // 0/NULL/NULL: not found
-    // 1/ptr/ptr: found exactly one
-    // n/NULL/NULL:  found N - use getClassesAndHeaders() instead
+    // 0/NULL/NULL: not found 为找到
+    // 1/ptr/ptr: found exactly one 找到一个
+    // n/NULL/NULL:  found N - use getClassesAndHeaders() instead 找到 N,使用 getClassesAndHeaders 代替
     uint32_t getClassAndHeader(const char *key, void*& cls, void*& hi) const
     {
         uint32_t unusedIndex = 0;
@@ -700,25 +724,38 @@ struct objc_protocolopt2_t : objc_clsopt_t {
     void* getProtocol(const char *key,
                       bool (*callback)(const void* header_info)) const
     {
+        // 获取哈希值
         uint32_t h = getIndex(key);
+        // 如果哈希值越界
         if (h == INDEX_NOT_FOUND) {
             return NULL;
         }
-
+        // 获取类偏移信息
         const objc_classheader_t& clshi = classOffsets()[h];
+        // 是否重复
         if (! clshi.isDuplicate()) {
             // protocol appears in exactly one header
+            // 协议恰好出现在一个objc_classheader_t中
+            // 从当前的 objc_classheader_t 获取类 和 hi
             void* cls = (void *)((const char *)this + clshi.clsOffset);
             void* hi  = (void *)((const char *)this + clshi.hiOffset);
+            // 根据 hi判断其是否加载来判定是返回 cls 还是 NULL
             return callback(hi) ? cls : NULL;
         }
         else {
             // protocol appears in more than one header
+            // 协议出现在多个 objc_classheader_t 中
+            
+            // 类出现在的数量
             uint32_t count = clshi.duplicateCount();
+            // 获取类名对应 Header 数量
             const objc_classheader_t *list = &duplicateOffsets()[clshi.duplicateIndex()];
+            // 循环 header,添加信息到 cls 和 hi 数组中
             for (uint32_t i = 0; i < count; i++) {
+                // 获取对应的 cls 和 hi
                 void* cls = (void *)((const char *)this + list[i].clsOffset);
                 void* hi  = (void *)((const char *)this + list[i].hiOffset);
+                // 根据 hi判断其是否加载返回 cls 
                 if (callback(hi))
                     return cls;
             }
@@ -728,7 +765,6 @@ struct objc_protocolopt2_t : objc_clsopt_t {
 
 };
 
-
 // Precomputed image list.
 struct objc_headeropt_ro_t;
 
@@ -736,6 +772,7 @@ struct objc_headeropt_ro_t;
 struct objc_headeropt_rw_t;
 
 // Precomputed class list.
+// 预计算的类列表。
 struct objc_clsopt_t;
 
 // Edit objc-sel-table.s if you change this value.

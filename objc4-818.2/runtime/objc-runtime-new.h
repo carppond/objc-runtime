@@ -36,6 +36,7 @@
 // class is a metaclass
 #define RO_META               (1<<0)
 // class is a root class
+// 类 是根类
 #define RO_ROOT               (1<<1)
 // class has .cxx_construct/destruct implementations
 #define RO_HAS_CXX_STRUCTORS  (1<<2)
@@ -57,6 +58,7 @@
 #define RO_FORBIDS_ASSOCIATED_OBJECTS (1<<10)
 
 // class is in an unloadable bundle - must never be set by compiler
+// 类在一个可卸载的包中 - 绝对不能由编译器设置 : 
 #define RO_FROM_BUNDLE        (1<<29)
 // class is unrealized future class - must never be set by compiler
 #define RO_FUTURE             (1<<30)
@@ -64,9 +66,12 @@
 #define RO_REALIZED           (1<<31)
 
 // Values for class_rw_t->flags
+// class_rw_t->flags 的值
 // These are not emitted by the compiler and are never used in class_ro_t.
+// 这些不是由编译器发出的，也不会在 class_ro_t 中使用。
 // Their presence should be considered in future ABI versions.
 // class_t->data is class_rw_t, not class_ro_t
+// class_t->data 是 class_rw_t，而不是 class_ro_t
 #define RW_REALIZED           (1<<31)
 // class is unresolved future class
 #define RW_FUTURE             (1<<30)
@@ -1771,6 +1776,8 @@ public:
     // Get the class's ro data, even in the presence of concurrent realization.
     // fixme this isn't really safe without a compiler barrier at least
     // and probably a memory barrier when realizeClass changes the data field
+    // 获取类的 class_ro_t 数据,即使存在并发实现.fixme 如果没有编译器屏障,
+    // 这并不是安全的,而是实现类更改数据字段时可能是内存屏障
     const class_ro_t *safe_ro() const {
         class_rw_t *maybe_rw = data();
         if (maybe_rw->flags & RW_REALIZED) {
@@ -2094,12 +2101,16 @@ struct objc_class : objc_object {
         // or -release, which is still correct.
         return !hasCustomCore() && usesSwiftRefcounting();
     }
-
+    
+    // 获取当前类,是否存在根类(rootClass?)
     bool isStubClass() const {
+        // 获取类对象的 isa 数据
         uintptr_t isa = (uintptr_t)isaBits();
+        // 1111 = 15
+        // 如果 isa 数据在 5 位以内就是根类
         return 1 <= isa && isa < 16;
     }
-
+    
     // Swift stable ABI built for old deployment targets looks weird.
     // The is-legacy bit is set for compatibility with old libobjc.
     // We are on a "new" deployment target so we need to rewrite that bit.
@@ -2193,7 +2204,9 @@ struct objc_class : objc_object {
     IMP getLoadMethod();
 
     // Locking: To prevent concurrent realization, hold runtimeLock.
+    // 当前类是否已实现
     bool isRealized() const {
+        // 如果不存在根类 && 并且当前类是否已实现
         return !isStubClass() && (data()->flags & RW_REALIZED);
     }
 
@@ -2242,6 +2255,7 @@ struct objc_class : objc_object {
 
     // Get the class's mangled name, or NULL if the class has a lazy
     // name that hasn't been created yet.
+    // 获取类的mangled name, 如果该类有一个尚未创建的 lazy name,则为 NULL
     const char *nonlazyMangledName() const {
         return bits.safe_ro()->getName();
     }

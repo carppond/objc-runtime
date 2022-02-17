@@ -172,8 +172,10 @@ HasClassProperties:
 */
 
 // Description of an expected duplicate class name.
+// 预期重复类描述的机构提
 // __DATA,__objc_dupclass stores one of these. Only the main image is
 // consulted for these purposes.
+// __DATA,__objc_dupclass 存储其中之一。 出于这些目的仅参考主图像。
 typedef struct _objc_duplicate_class {
     uint32_t version;
     uint32_t flags;

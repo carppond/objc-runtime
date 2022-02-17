@@ -442,21 +442,29 @@ void *NXMapKeyCopyingInsert(NXMapTable *table, const void *key, const void *valu
 /***********************************************************************
 * NXMapKeyFreeingRemove
 * Like NXMapRemove, but frees the existing key if necessary.
+* 与 NXMapRemove 类似，但在必要时释放现有密钥。
 * Used to prevent stale pointers when bundles are unloaded.
+* 用于在卸载捆绑包时防止过时的指针。
 **********************************************************************/
 void *NXMapKeyFreeingRemove(NXMapTable *table, const void *key)
 {
+    // 临时变量
     void *realKey;
     void *realValue = NULL;
-
+    // 根据 key 和 table 获取 realKey, 并且与 NX_MAPNOTAKEY 做判断
+    // 在全局哈希表中判断是否有这个 key
     if ((realKey = NXMapMember(table, key, &realValue)) != NX_MAPNOTAKEY) {
         // key DOES exist in table - remove pair and free key
+        // key 的秘钥确实存在表中,删除空闲的key
+        // 从 table 中删除 key,并返回对应的 value
         realValue = NXMapRemove(table, realKey);
         // free the key from the table, not necessarily the one given
-        freeIfMutable((char *)realKey); 
+        // 是否已删除的 key
+        freeIfMutable((char *)realKey);
         return realValue;
     } else {
         // key DOES NOT exist in table - nothing to do
+        // 表中不存在这个 key
         return NULL;
     }
 }

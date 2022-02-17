@@ -349,12 +349,16 @@ category_t * const *header_info::catlist2(size_t *outCount) const
 
 Protocol *getSharedCachePreoptimizedProtocol(const char *name)
 {
+    // 从 opt 获取协议哈希表
     objc_protocolopt2_t *protocols = opt ? opt->protocolopt2() : nil;
     if (!protocols) return nil;
 
     // Note, we have to pass the lambda directly here as otherwise we would try
     // message copy and autorelease.
+    // 注意，我们必须在这里直接传递 lambda，否则我们会尝试消息复制和自动释放。
+    // 根据协议名或者协议
     return (Protocol *)protocols->getProtocol(name, [](const void* hi) -> bool {
+        // hi 是否已经加载
       return ((header_info *)hi)->isLoaded();
     });
 }
@@ -398,51 +402,71 @@ unsigned int getPreoptimizedClassUnreasonableCount()
     return classes->capacity + classes->duplicateCount();
 }
 
-
+// 从dyld 共享缓存中获取类
 Class getPreoptimizedClass(const char *name)
-{
+{   // 共全局的 opt 中获取类数据
     objc_clsopt_t *classes = opt ? opt->clsopt() : nil;
+    // 如果类数据不存在,返回
     if (!classes) return nil;
 
     // Try table from dyld closure first.  It was built to ignore the dupes it
     // knows will come from the cache, so anything left in here was there when
     // we launched
+    // 首先从 dyld 比包中尝试表.它的构建是为了忽略它知道将来自缓存的欺骗，所以当我们启动时，这里留下的任何东西都在那里
     Class result = nil;
     // Note, we have to pass the lambda directly here as otherwise we would try
     // message copy and autorelease.
+    // 注意，我们必须在这里直接传递 lambda，否则我们会尝试消息复制和自动释放。
+    // 在 dyld 中查找是否有此名称的类
     _dyld_for_each_objc_class(name, [&result](void* classPtr, bool isLoaded, bool* stop) {
         // Skip images which aren't loaded.  This supports the case where dyld
         // might soft link an image from the main binary so its possibly not
         // loaded yet.
+        // 跳转没加载的 image.这里支持 dyld 可能软链接来自主程序二进制的 image 情况,因此它可能尚未加载
+        // 如果name 在未加载的 image 中
         if (!isLoaded)
             return;
 
         // Found a loaded image with this class name, so stop the search
+        // 找到这个类所加载的 iamge,停止检索
         result = (Class)classPtr;
         *stop = true;
     });
+    // 如果从 dyld 中找到类
     if (result) return result;
-
+    
+    // 临时变量
     void *cls;
     void *hi;
+    // 从 classes 找到 name 所在 header 的数量
     uint32_t count = classes->getClassAndHeader(name, cls, hi);
+    // 如果 count == 1,并且找到了 hi 已加载,就返回找到的类
     if (count == 1  &&  ((header_info *)hi)->isLoaded()) {
         // exactly one matching class, and its image is loaded
+        // 恰好是一个匹配的类，并且加载了它的图像
         return (Class)cls;
     } 
-    else if (count > 1) {
+    else if (count > 1) { // 说明 name 对应多个 header
         // more than one matching class - find one that is loaded
+        // 从多个匹配的类中,找到一个已加载的类
+        // 类列表
         void *clslist[count];
+        // hi 列表
         void *hilist[count];
+        // 从 header 中获取类和 hi 数组
         classes->getClassesAndHeaders(name, clslist, hilist);
+        // 循环查找
         for (uint32_t i = 0; i < count; i++) {
+            // 如果 hi 对应的类已经image 已加载
             if (((header_info *)hilist[i])->isLoaded()) {
+                // 找到类,并返回
                 return (Class)clslist[i];
             }
         }
     }
 
     // no match that is loaded
+    // 没有匹配到,返回 nil
     return nil;
 }
 

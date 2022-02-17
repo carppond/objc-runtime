@@ -236,6 +236,8 @@ public:
   // Inserts key,value pair into the map if the key isn't already in the map.
   // If the key is already in the map, it returns false and doesn't update the
   // value.
+  // 如果 key 不在映射中,则将key/value 插入到映射中
+  // 如果 key 已经在映射中,则返回 false,并不更新 value
   std::pair<iterator, bool> insert(std::pair<KeyT, ValueT> &&KV) {
     return try_emplace(std::move(KV.first), std::move(KV.second));
   }

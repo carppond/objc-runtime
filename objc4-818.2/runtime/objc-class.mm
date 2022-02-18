@@ -613,6 +613,7 @@ Ivar class_getClassVariable(Class cls, const char *name)
 * gdb_objc_class_changed
 * Tell gdb that a class changed. Currently used for OBJC2 ivar layouts only
 * Does nothing; gdb sets a breakpoint on it.
+* 告诉 gdb 一个类发生了变化。 目前仅用于 OBJC2 ivar 布局 什么都不做； gdb 在其上设置断点。
 **********************************************************************/
 BREAKPOINT_FUNCTION( 
     void gdb_objc_class_changed(Class cls, unsigned long changes, const char *classname)

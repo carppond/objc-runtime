@@ -266,11 +266,13 @@ bool header_info::hasPreoptimizedSectionLookups() const
     return YES;
 }
 
+// 从
 const classref_t *header_info::nlclslist(size_t *outCount) const
 {
 #if __OBJC2__
     // This field is new, so temporarily be resilient to the shared cache
     // not generating it
+    // 从预优化的 hi 中缓存的 nlclslist_offset 中获取数据
     if (isPreoptimized() && hasPreoptimizedSectionLookups()) {
           *outCount = nlclslist_count;
           const classref_t *list = (const classref_t *)(((intptr_t)&nlclslist_offset) + nlclslist_offset);
@@ -280,6 +282,7 @@ const classref_t *header_info::nlclslist(size_t *outCount) const
       #endif
           return list;
     }
+    // 从__DATA, __objc_nlclslist 中获取数据
     return _getObjc2NonlazyClassList(mhdr(), outCount);
 #else
     return NULL;
@@ -306,12 +309,17 @@ category_t * const *header_info::nlcatlist(size_t *outCount) const
 #endif
 }
 
+// 从(__DATA, __objc_catlist)中或者(hi分类缓存)获取分类信息
 category_t * const *header_info::catlist(size_t *outCount) const
 {
 #if __OBJC2__
     // This field is new, so temporarily be resilient to the shared cache
     // not generating it
+    // 这个字段是新的，所以暂时对不生成它的共享缓存有弹性
+    
+    // 当前 hi 是预优化的 并且 根据 hi 的容量判断是否预优化的
     if (isPreoptimized() && hasPreoptimizedSectionLookups()) {
+      // 从 hi 对应的 catlist 中获取分类信息
       *outCount = catlist_count;
       category_t * const *list = (category_t * const *)(((intptr_t)&catlist_offset) + catlist_offset);
       #if DEBUG
@@ -320,6 +328,7 @@ category_t * const *header_info::catlist(size_t *outCount) const
       #endif
       return list;
     }
+    // 从__DATA, __objc_catlist 中获取分类信息
     return _getObjc2CategoryList(mhdr(), outCount);
 #else
     return NULL;
@@ -331,7 +340,11 @@ category_t * const *header_info::catlist2(size_t *outCount) const
 #if __OBJC2__
     // This field is new, so temporarily be resilient to the shared cache
     // not generating it
+    // 这个字段是新的，所以暂时对不生成它的共享缓存有弹性
+    
+    // 当前 hi 是预优化的 并且 根据 hi 的容量判断是否预优化的
     if (isPreoptimized() && hasPreoptimizedSectionLookups()) {
+      // 从 hi 对应的 catlist2 中获取分类信息
       *outCount = catlist2_count;
       category_t * const *list = (category_t * const *)(((intptr_t)&catlist2_offset) + catlist2_offset);
       #if DEBUG
@@ -340,6 +353,7 @@ category_t * const *header_info::catlist2(size_t *outCount) const
       #endif
       return list;
     }
+    // 从__DATA, __objc_catlist2 中获取分类信息
     return _getObjc2CategoryList2(mhdr(), outCount);
 #else
     return NULL;
@@ -363,31 +377,45 @@ Protocol *getSharedCachePreoptimizedProtocol(const char *name)
     });
 }
 
-
+// 从 opt/dyld/opt共享缓存获取预优化的协议
 Protocol *getPreoptimizedProtocol(const char *name)
 {
+    // opt 链表是否存在,如果存在从表中获取协议 objc_protocolopt2_t * 链表
     objc_protocolopt2_t *protocols = opt ? opt->protocolopt2() : nil;
+    // 获取失败,返回
     if (!protocols) return nil;
 
     // Try table from dyld closure first.  It was built to ignore the dupes it
     // knows will come from the cache, so anything left in here was there when
     // we launched
+    // 首先从 dyld 闭包中尝试获取表. 它的构造是为了忽略它知道将来自缓存的 dupes,
+    // 所以当我们启动的时候,这里留下的任何痕迹都在那里.
     Protocol *result = nil;
     // Note, we have to pass the lambda directly here as otherwise we would try
     // message copy and autorelease.
+    // 注意: 我们必须在这里直接传递 lambda, 否则会尝试消息复制和autorelease
+    /*
+     _dyld_for_each_objc_protocol iOS 13 以后
+     仅由 objc 调用以查看 dyld 是否具有使用此名称的预优化协议。
+     
+     对于具有给定名称的每个协议，回调将被调用一次，如果该协议位于先前已传递给 objc 加载通知程序的二进制文件中，
+     则 isLoaded 为 true。
+     */
     _dyld_for_each_objc_protocol(name, [&result](void* protocolPtr, bool isLoaded, bool* stop) {
         // Skip images which aren't loaded.  This supports the case where dyld
         // might soft link an image from the main binary so its possibly not
         // loaded yet.
+        // 跳过未加载的图像。 这支持 dyld 可能软链接来自主二进制文件的图像的情况，因此它可能尚未加载。
         if (!isLoaded)
             return;
 
         // Found a loaded image with this class name, so stop the search
+        // 从 dyld 中找到协议,停止检索,并返回
         result = (Protocol *)protocolPtr;
         *stop = true;
     });
     if (result) return result;
-
+    // 获取共享缓存预优化协议
     return getSharedCachePreoptimizedProtocol(name);
 }
 

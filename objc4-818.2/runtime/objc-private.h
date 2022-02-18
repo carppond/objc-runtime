@@ -425,6 +425,7 @@ private:
     // Offset from this location to the category list
     // 从这个位置到分类列表的偏移量
     intptr_t catlist_offset;
+    // 分类数量
     uintptr_t catlist_count;
 
     // Offset from this location to the category list 2

@@ -61,6 +61,7 @@
 // 类在一个可卸载的包中 - 绝对不能由编译器设置 : 
 #define RO_FROM_BUNDLE        (1<<29)
 // class is unrealized future class - must never be set by compiler
+// 类是未实现的未来类 - 绝对不能由编译器设置 
 #define RO_FUTURE             (1<<30)
 // class is realized - must never be set by compiler
 #define RO_REALIZED           (1<<31)
@@ -80,6 +81,7 @@
 // class is initializing
 #define RW_INITIALIZING       (1<<28)
 // class_rw_t->ro is heap copy of class_ro_t
+// class_rw_t->ro 是 class_ro_t 的堆副本 
 #define RW_COPIED_RO          (1<<27)
 // class allocated but not yet registered
 #define RW_CONSTRUCTING       (1<<26)
@@ -1490,26 +1492,42 @@ class list_array_tt {
             return &list;
         }
     }
-
+    /*
+     真正进行分类中的内容追加到类中。开冲... 这里是把 category 的内容追加到 class_rw_ext_t 中去
+     */
     void attachLists(List* const * addedLists, uint32_t addedCount) {
         if (addedCount == 0) return;
-
+        // 如果 array 存在,进入判断
         if (hasArray()) {
             // many lists -> many lists
+            // 记录之前的数组长度
             uint32_t oldCount = array()->count;
+            // 新数组长度 = 原有长度 + 新增的 count
             uint32_t newCount = oldCount + addedCount;
+            
+            // 根据 newCount 开辟空间,类型是 array_t *
             array_t *newArray = (array_t *)malloc(array_t::byteSize(newCount));
+            // 更新 array 长度
             newArray->count = newCount;
             array()->count = newCount;
-
+            
+            // 把方法列表向后移动,给 addedList 留出 addedCount 的空间
+            // 遍历原有数据中 List 数据,将其放在 newArray数组 addedCount 之后的位置
             for (int i = oldCount - 1; i >= 0; i--)
+                // 从最后一个开始存取
                 newArray->lists[i + addedCount] = array()->lists[i];
+            // 把 addedLists 中的数据复制到 newArray->lists 起始的内存空间内
             for (unsigned i = 0; i < addedCount; i++)
                 newArray->lists[i] = addedLists[i];
+            
+            // 释放原有 array()
             free(array());
+            // 更新数组
             setArray(newArray);
             validate();
         }
+        // 如果类中有方法,第一次进来是主类的方法列表
+        // 如果类中没有方法,则进来的就是分类的方法列表
         else if (!list  &&  addedCount == 1) {
             // 0 lists -> 1 list
             list = addedLists[0];
@@ -1517,20 +1535,29 @@ class list_array_tt {
         } 
         else {
             // 1 list -> many lists
+            // 将 List 数组赋值给 oldList
             Ptr<List> oldList = list;
+            // oldList 存在,oldCount 为 1,反之为 0
             uint32_t oldCount = oldList ? 1 : 0;
+            // 更新 newCount
             uint32_t newCount = oldCount + addedCount;
+            // 开启 byteSize(newCount) 的空间,并设置 array
             setArray((array_t *)malloc(array_t::byteSize(newCount)));
+            // 更新数组中元素个数
             array()->count = newCount;
+            // 将原来 oldList 放到数组末尾
             if (oldList) array()->lists[addedCount] = oldList;
+            // 把 addedLists 复制到 array()->lists 起始的内存空间
             for (unsigned i = 0; i < addedCount; i++)
                 array()->lists[i] = addedLists[i];
             validate();
         }
     }
-
+    // 尝试释放
     void tryFree() {
+        // 如果 array 数组存在
         if (hasArray()) {
+            //
             for (uint32_t i = 0; i < array()->count; i++) {
                 try_free(array()->lists[i]);
             }
